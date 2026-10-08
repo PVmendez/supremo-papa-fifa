@@ -4,9 +4,9 @@
   { "num": 3,  "name": "Facundo",   "photo": "img/03.jpg" },
   { "num": 4,  "name": "Maciel",    "photo": "img/04.jpg" },
   { "num": 5,  "name": "Nacho",     "photo": "img/05.jpg" },
-  { "num": 6,  "name": "Jairo",     "photo": null },
-  { "num": 7,  "name": "Cristian",  "photo": null },
-  { "num": 8,  "name": "Ezequiel",  "photo": null },
+  { "num": 6,  "name": "Jairo",     "photo": "img/06.jpg" },
+  { "num": 7,  "name": "Cristian",  "photo": "img/07.jpg" },
+  { "num": 8,  "name": "Ezequiel",  "photo": "img/08.jpg" },
   { "num": 9,  "name": "Sebastian", "photo": "img/09.jpg" },
   { "num": 10, "name": "Nicolas",   "photo": "img/10.jpg" },
   { "num": 11, "name": "Carpi",     "photo": "img/11.jpg" },
@@ -14,5 +14,5 @@
   { "num": 13, "name": "Felipe",    "photo": "img/13.jpg" },
   { "num": 14, "name": "Bruno",     "photo": "img/14.jpg" },
   { "num": 15, "name": "Roque",     "photo": "img/15.jpg" },
-  { "num": 16, "name": "Pichu",     "photo": null }
+  { "num": 16, "name": "Pichu",     "photo": "img/16.jpg" }
 ]
