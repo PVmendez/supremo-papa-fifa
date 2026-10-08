@@ -166,12 +166,8 @@ a { color: inherit; }
 .card.no .frame img { filter: grayscale(1) contrast(1.1); }
 .card.no .card-name { text-decoration: line-through; text-decoration-thickness: 3px; }
 
-.card.reveal { animation: reveal .7s cubic-bezier(.2,.8,.2,1.2); }
-@keyframes reveal {
-  0% { transform: scale(.92) rotate(-4deg); }
-  60% { transform: scale(1.04) rotate(1deg); }
-  100% { transform: scale(1) rotate(0); }
-}
+.card { backface-visibility: hidden; will-change: transform; }
+.frame img { -webkit-user-drag: none; }
 
 .footer {
   background: var(--ink); color: var(--paper);
@@ -181,6 +177,5 @@ a { color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .card.reveal { animation: none; }
   .frame img, .btn, .card { transition: none; }
 }

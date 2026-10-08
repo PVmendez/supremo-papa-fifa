@@ -83,23 +83,50 @@
       status === "no" ? "Se bajó del torneo" :
       "Esperando respuesta"));
 
-    if (!firstRender && lastStatus[g.num] && lastStatus[g.num] !== status) card.classList.add("reveal");
+    card.dataset.num = g.num;
+    card.dataset.status = status;
     return card;
   }
+
+  var FX = window.Effects || null;
+  var cardEls = {};          // num -> elemento actual
+  var confirmedShown = 0;
+  var fmtCounter = function (n) { return n + " / " + TOTAL + " confirmados"; };
 
   function render(guests) {
     var byNum = {};
     guests.forEach(function (g) { byNum[g.num] = g; });
-    var frag = document.createDocumentFragment();
     var confirmed = 0;
-    for (var n = 1; n <= TOTAL; n++) {
-      var g = byNum[n] || { num: n, status: "pending" };
-      if (g.status === "yes") confirmed++;
-      frag.appendChild(buildCard(g));
+
+    if (firstRender) {
+      var frag = document.createDocumentFragment();
+      for (var n = 1; n <= TOTAL; n++) {
+        var g = byNum[n] || { num: n, status: "pending" };
+        if (g.status === "yes") confirmed++;
+        cardEls[n] = buildCard(g);
+        frag.appendChild(cardEls[n]);
+      }
+      grid.replaceChildren(frag);
+      if (FX) FX.dealCards(Array.prototype.slice.call(grid.children));
+    } else {
+      for (var m = 1; m <= TOTAL; m++) {
+        var gg = byNum[m] || { num: m, status: "pending" };
+        if (gg.status === "yes") confirmed++;
+        var prev = lastStatus[m] || "pending";
+        var isMeNow = !!(me && me.num === m);
+        var wasMe = cardEls[m].classList.contains("is-me");
+        if (prev === gg.status && isMeNow === wasMe) continue;
+        var fresh = buildCard(gg);
+        if (prev !== gg.status && FX) FX.flipReveal(cardEls[m], fresh, gg.status);
+        else cardEls[m].replaceWith(fresh);
+        cardEls[m] = fresh;
+      }
     }
-    grid.replaceChildren(frag);
-    counter.textContent = confirmed + " / " + TOTAL + " confirmados";
-    guests.forEach(function (g) { lastStatus[g.num] = g.status; });
+
+    if (FX) FX.countTo(counter, confirmedShown, confirmed, fmtCounter);
+    else counter.textContent = fmtCounter(confirmed);
+    confirmedShown = confirmed;
+    for (var k = 1; k <= TOTAL; k++) lastStatus[k] = (byNum[k] && byNum[k].status) || "pending";
     firstRender = false;
   }
 
@@ -133,7 +160,8 @@
     buttons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.status === me.status)); });
   }
 
-  function answer(status) {
+  function answer(status, btn) {
+    if (FX && btn) FX.press(btn);
     buttons.forEach(function (b) { b.disabled = true; });
     inviteMsg.textContent = "Guardando…";
     api("/rsvp", { method: "POST", body: JSON.stringify({ code: code, status: status }) })
@@ -141,7 +169,11 @@
         me = g;
         paintInvite();
         inviteMsg.textContent = status === "yes" ? "Confirmado. Tu card ya está a la vista de todos." : "Listo, registramos que no venís.";
-        return load();
+        if (FX && status === "yes" && btn) FX.popConfetti(btn, { direction: "up", particles: 36, streamers: 10 });
+        return load().then(function () {
+          var mine = cardEls[me.num];
+          if (mine && mine.scrollIntoView) mine.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
       })
       .catch(function (err) {
         inviteMsg.textContent = err.status === 404
@@ -157,7 +189,7 @@
     inviteTitle.textContent = "Cargando tu convocatoria…";
     buttons.forEach(function (b) {
       b.disabled = true;
-      b.addEventListener("click", function () { answer(b.dataset.status); });
+      b.addEventListener("click", function () { answer(b.dataset.status, b); });
     });
     api("/me?c=" + encodeURIComponent(code)).then(function (g) {
       me = g;
