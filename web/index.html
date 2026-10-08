@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>El Supremo Papá del FIFA 2026</title>
+<meta name="description" content="Torneo de apertura de la nueva casa. Sábado 24 de octubre, 18:00 hrs.">
+<meta property="og:title" content="El Supremo Papá del FIFA 2026">
+<meta property="og:description" content="Estás convocado. Sábado 24 de octubre · 18:00 hrs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">Supremo Papá · 2026</span>
+  <nav>
+    <a href="#evento">El evento</a>
+    <a href="#convocados">Convocados</a>
+  </nav>
+</header>
+
+<main>
+  <section id="evento" class="hero">
+    <p class="kicker">Evento de apertura</p>
+    <h1>El Supremo Papá<br>del FIFA 2026</h1>
+    <p class="sub">El primer torneo en la nueva casa</p>
+    <p class="lead">El último torneo de FIFA del año. Uno solo se lleva el cinturón y el título de <strong>Supremo Papá del FIFA 2026</strong>. El resto, a lavar los vasos.</p>
+    <dl class="facts">
+      <div class="fact"><dt>Fecha</dt><dd>Sábado 24 de octubre</dd></div>
+      <div class="fact"><dt>Hora</dt><dd>18:00 hrs</dd></div>
+      <div class="fact"><dt>Lugar</dt><dd>La nueva casa</dd></div>
+    </dl>
+  </section>
+
+  <section id="invitacion" class="invite" hidden>
+    <div class="invite-inner">
+      <p class="kicker">Tu convocatoria</p>
+      <h2 id="invite-title">Hola</h2>
+      <p id="invite-text" class="invite-text"></p>
+      <div class="invite-actions" id="invite-actions">
+        <button type="button" class="btn btn-yes" data-status="yes">Asistiré</button>
+        <button type="button" class="btn btn-no" data-status="no">No asistiré</button>
+      </div>
+      <p id="invite-msg" class="invite-msg" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section id="convocados" class="roster">
+    <div class="roster-inner">
+      <div class="roster-head">
+        <div>
+          <h2>Los convocados</h2>
+          <p>Cada uno aparece cuando responde su convocatoria.</p>
+        </div>
+        <p class="counter" id="counter">— / 16 confirmados</p>
+      </div>
+      <div class="grid" id="grid" aria-live="polite"></div>
+      <p class="load-error" id="load-error" hidden>No pudimos cargar las respuestas. Reintentando…</p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">Sábado 24 de octubre · 18:00 hrs · Que gane el mejor</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

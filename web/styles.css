@@ -1,0 +1,186 @@
+/* Layout: póster pegado en la pared; hero centrado, franja azul con la grilla de cards-recorte. Estética única (no cambia con el tema del sistema). */
+:root {
+  --paper: #EDE3CC;
+  --paper-2: #F7F0DE;
+  --ink: #141414;
+  --ink-soft: #5a5144;
+  --gold: #D4AF37;
+  --navy: #1E3A5F;
+  --navy-deep: #0f1f33;
+  --red: #9B2335;
+  --mist: #C9D3E0;
+  --f-display: 'Anton', Impact, 'Arial Narrow', sans-serif;
+  --f-label: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  --f-body: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.5;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--ink); color: var(--paper);
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+}
+.brand { font-family: var(--f-label); font-size: 26px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+.topbar nav { display: flex; gap: 20px; }
+.topbar nav a { text-decoration: none; font-weight: 600; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+.topbar nav a:hover { color: var(--gold); }
+
+.kicker {
+  margin: 0; display: inline-block;
+  background: var(--navy); color: var(--paper);
+  font-family: var(--f-label); font-size: 22px; letter-spacing: 3px; text-transform: uppercase;
+  padding: 6px 18px; transform: rotate(-1.5deg);
+}
+
+.hero {
+  max-width: 1180px; margin: 0 auto;
+  padding: 56px 16px 48px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center;
+}
+.hero h1 {
+  margin: 0; background: var(--ink); color: var(--gold);
+  font-family: var(--f-display); font-weight: 400; text-transform: uppercase;
+  font-size: clamp(42px, 8vw, 104px); line-height: .95; letter-spacing: 1px;
+  padding: 18px 28px; text-wrap: balance;
+}
+.sub { margin: 6px 0 0; font-family: var(--f-label); font-size: clamp(22px, 3vw, 32px); letter-spacing: 2px; text-transform: uppercase; }
+.lead { margin: 0; max-width: 62ch; font-size: 18px; }
+
+.facts {
+  margin: 22px 0 0; width: 100%; max-width: 860px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;
+}
+.fact { background: var(--paper-2); border: 3px solid var(--ink); padding: 16px; box-shadow: 6px 6px 0 var(--ink); text-align: left; }
+.fact dt { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: var(--red); text-transform: uppercase; }
+.fact dd { margin: 0; font-family: var(--f-label); font-size: 32px; }
+
+/* Invitación personal */
+.invite { padding: 0 16px 56px; }
+.invite-inner {
+  max-width: 720px; margin: 0 auto;
+  background: var(--ink); color: var(--paper);
+  border: 4px solid var(--gold); box-shadow: 10px 10px 0 var(--navy);
+  padding: 28px 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;
+}
+.invite h2 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: clamp(34px, 6vw, 56px); text-transform: uppercase; color: var(--gold); line-height: 1; text-wrap: balance; }
+.invite-text { margin: 0; max-width: 52ch; font-size: 17px; }
+.invite-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+.btn {
+  min-height: 52px; min-width: 180px; padding: 8px 22px;
+  font-family: var(--f-label); font-size: 26px; letter-spacing: 1.5px; text-transform: uppercase;
+  border: 3px solid var(--paper); cursor: pointer; transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--paper); }
+.btn:disabled { opacity: .55; cursor: progress; }
+.btn-yes { background: var(--gold); color: var(--ink); }
+.btn-no { background: transparent; color: var(--paper); }
+.btn[aria-pressed="true"] { outline: 3px solid var(--paper); outline-offset: 3px; }
+.invite-msg { margin: 0; min-height: 1.5em; font-weight: 600; color: var(--mist); }
+
+/* Convocados */
+.roster { background: var(--navy); color: var(--paper); padding: 56px 16px 72px; }
+.roster-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.roster-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; }
+.roster-head h2 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: clamp(38px, 5vw, 60px); text-transform: uppercase; }
+.roster-head p { margin: 6px 0 0; color: var(--mist); }
+.roster-head .counter {
+  margin: 0; background: var(--gold); color: var(--ink);
+  padding: 10px 18px; font-family: var(--f-label); font-size: 28px; letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 24px; }
+.load-error { margin: 0; color: var(--gold); font-weight: 600; }
+
+.card {
+  background: var(--paper); color: var(--ink);
+  padding: 12px 12px 14px; box-shadow: 8px 8px 0 var(--navy-deep);
+  display: flex; flex-direction: column; gap: 10px;
+  transition: transform .2s ease;
+}
+.card:nth-child(4n+1) { transform: rotate(-1.2deg); }
+.card:nth-child(4n+2) { transform: rotate(.8deg); }
+.card:nth-child(4n+3) { transform: rotate(-.5deg); }
+.card:nth-child(4n)   { transform: rotate(1.3deg); }
+.card.is-me { box-shadow: 8px 8px 0 var(--gold); }
+
+.frame {
+  position: relative; aspect-ratio: 4 / 5; max-width: 100%; overflow: hidden;
+  border: 4px solid var(--gold); background: var(--slot, #8fa3b8);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.pitch {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(237,227,204,.2) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(237,227,204,.2) 2px, transparent 2px),
+    radial-gradient(circle at 50% 50%, transparent 21%, rgba(237,227,204,.2) 21.5%, rgba(237,227,204,.2) 23%, transparent 23.5%);
+  background-size: 100% 50%, 50% 100%, 100% 100%;
+}
+.frame img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center top; mix-blend-mode: multiply;
+  transition: filter .8s ease;
+}
+.silhouette { position: relative; width: 78%; }
+.mystery {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--f-display); font-size: 120px; color: var(--paper); opacity: .85;
+  text-shadow: 4px 4px 0 var(--ink);
+}
+.badge {
+  position: absolute; top: 10px; left: 10px;
+  display: flex; flex-direction: column; align-items: center;
+  background: var(--ink); color: var(--gold); padding: 4px 10px 6px;
+  font-family: var(--f-label); line-height: 1;
+}
+.badge b { font-weight: 400; font-size: 30px; }
+.badge small { font-size: 12px; letter-spacing: 1px; color: var(--paper); }
+.stamp {
+  position: absolute; bottom: 14px; right: -6px;
+  font-family: var(--f-label); font-size: 22px; letter-spacing: 2px;
+  padding: 4px 14px; transform: rotate(-6deg); border: 2px solid var(--paper);
+}
+.stamp.yes { background: var(--red); color: var(--paper); }
+.stamp.no { background: var(--ink); color: var(--paper); }
+
+.card-name { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 26px; text-transform: uppercase; line-height: 1; }
+.card-status { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 1px; color: var(--ink-soft); text-transform: uppercase; }
+
+.card.pending .frame { --slot: #6b7685; }
+.card.pending .card-name { color: var(--ink-soft); }
+.card.no .frame img { filter: grayscale(1) contrast(1.1); }
+.card.no .card-name { text-decoration: line-through; text-decoration-thickness: 3px; }
+
+.card.reveal { animation: reveal .7s cubic-bezier(.2,.8,.2,1.2); }
+@keyframes reveal {
+  0% { transform: scale(.92) rotate(-4deg); }
+  60% { transform: scale(1.04) rotate(1deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.footer {
+  background: var(--ink); color: var(--paper);
+  padding: 28px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+  text-align: center; font-family: var(--f-label); font-size: 22px; letter-spacing: 2px; text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .card.reveal { animation: none; }
+  .frame img, .btn, .card { transition: none; }
+}
