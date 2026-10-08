@@ -1,0 +1,17 @@
+{
+  "name": "supremo-papa-fifa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:init:local": "wrangler d1 execute supremo-papa-fifa --local --file=schema.sql",
+    "db:init": "wrangler d1 execute supremo-papa-fifa --remote --file=schema.sql",
+    "seed:local": "node scripts/seed.mjs --local",
+    "seed": "node scripts/seed.mjs --remote",
+    "dev": "wrangler pages dev",
+    "deploy": "wrangler pages deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.135.0"
+  }
+}

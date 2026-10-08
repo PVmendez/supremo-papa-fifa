@@ -1,0 +1,9 @@
+name = "supremo-papa-fifa"
+compatibility_date = "2026-06-01"
+pages_build_output_dir = "web"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "supremo-papa-fifa"
+# Pegá acá el id que imprime `npx wrangler d1 create supremo-papa-fifa`
+database_id = "REEMPLAZAR_CON_EL_ID_DE_D1"

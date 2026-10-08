@@ -1,8 +1,6 @@
 node_modules/
-cdk.out/
-*.js.map
-infra/**/*.js
-infra/**/*.d.ts
+.wrangler/
+.dev.vars
 scripts/links.local.txt
 .env
 .DS_Store
