@@ -14,6 +14,7 @@
   var code = readCode();
   var me = null;            // { num, name, status } del invitado del link
   var lastStatus = {};      // num -> status, para animar solo lo que cambia
+  var lastTeam = {};        // num -> id del equipo sorteado, para repintar la card cuando le toca
   var firstRender = true;
 
   function readCode() {
@@ -78,6 +79,12 @@
 
     card.appendChild(frame);
     card.appendChild(el("h3", "card-name", status === "pending" ? "Convocado #" + g.num : g.name));
+    if (status === "yes" && g.team) {
+      var team = el("p", "card-team");
+      if (window.Supremo) team.appendChild(window.Supremo.crest(g.team, "sm"));
+      team.appendChild(document.createTextNode(g.team.name));
+      card.appendChild(team);
+    }
     card.appendChild(el("p", "card-status",
       status === "yes" ? "Presente. Que tiemble el resto." :
       status === "no" ? "Se bajó del torneo" :
@@ -115,7 +122,8 @@
         var prev = lastStatus[m] || "pending";
         var isMeNow = !!(me && me.num === m);
         var wasMe = cardEls[m].classList.contains("is-me");
-        if (prev === gg.status && isMeNow === wasMe) continue;
+        var teamNow = gg.team ? gg.team.id : null;
+        if (prev === gg.status && isMeNow === wasMe && (lastTeam[m] || null) === teamNow) continue;
         var fresh = buildCard(gg);
         if (prev !== gg.status && FX) FX.flipReveal(cardEls[m], fresh, gg.status);
         else cardEls[m].replaceWith(fresh);
@@ -126,7 +134,10 @@
     if (FX) FX.countTo(counter, confirmedShown, confirmed, fmtCounter);
     else counter.textContent = fmtCounter(confirmed);
     confirmedShown = confirmed;
-    for (var k = 1; k <= TOTAL; k++) lastStatus[k] = (byNum[k] && byNum[k].status) || "pending";
+    for (var k = 1; k <= TOTAL; k++) {
+      lastStatus[k] = (byNum[k] && byNum[k].status) || "pending";
+      lastTeam[k] = (byNum[k] && byNum[k].team && byNum[k].team.id) || null;
+    }
     firstRender = false;
   }
 
@@ -151,7 +162,7 @@
   function paintInvite() {
     inviteTitle.textContent = "Hola, " + me.name;
     if (me.status === "yes") {
-      inviteText.textContent = "Ya estás confirmado para el sábado 24. Si algo cambia, podés bajarte acá abajo.";
+      inviteText.textContent = "Ya estás confirmado para el domingo 18. Si algo cambia, podés bajarte acá abajo.";
     } else if (me.status === "no") {
       inviteText.textContent = "Marcaste que no venís. Si te liberás, todavía podés confirmar.";
     } else {

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>El torneo · Supremo Papá 2026</title>
+<meta name="description" content="Grupos, partidos y llave del Supremo Papá del FIFA 2026.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">Supremo Papá · 2026</a>
+  <nav>
+    <a href="/">Convocados</a>
+    <a href="/sorteo">Sorteo</a>
+    <a href="/torneo" aria-current="page">Torneo</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero hero-tight">
+    <p class="kicker">Grupos + eliminación</p>
+    <h1>El torneo</h1>
+    <p class="lead" id="format">Se arma solo después del sorteo, con los que tengan equipo.</p>
+  </section>
+
+  <section class="champion" id="champion" hidden></section>
+
+  <section class="admin" id="admin" hidden>
+    <div class="admin-inner">
+      <h2>Panel del organizador</h2>
+      <form class="admin-token" id="token-form">
+        <label for="token">Token de admin</label>
+        <input id="token" type="password" autocomplete="off" placeholder="Pegá el token">
+        <button class="btn btn-yes btn-sm" type="submit">Guardar</button>
+      </form>
+      <div class="admin-actions" id="admin-actions" hidden>
+        <button class="btn btn-yes" id="btn-start" type="button">Armar grupos</button>
+        <p class="muted">Tocá un partido para cargar el resultado.</p>
+        <button class="btn-link" id="btn-reset" type="button">Borrar torneo</button>
+      </div>
+      <p class="admin-msg" id="admin-msg" role="status"></p>
+    </div>
+  </section>
+
+  <section class="tourney">
+    <div class="tourney-inner">
+      <div id="next-block" hidden>
+        <h2>Ahora se juega</h2>
+        <div class="next" id="next"></div>
+      </div>
+      <div id="bracket-block" hidden>
+        <h2>La llave</h2>
+        <div class="bracket" id="bracket"></div>
+      </div>
+      <div id="groups-block" hidden>
+        <h2>Grupos</h2>
+        <div class="groups" id="groups"></div>
+      </div>
+      <p class="tourney-empty" id="empty"></p>
+    </div>
+  </section>
+</main>
+
+<dialog class="score-dialog" id="score-dialog">
+  <form method="dialog" id="score-form">
+    <h3 id="score-title">Resultado</h3>
+    <div class="score-row">
+      <label><span id="home-name">Local</span><input id="hg" type="number" min="0" max="99" inputmode="numeric" required></label>
+      <span class="score-sep">–</span>
+      <label><span id="away-name">Visitante</span><input id="ag" type="number" min="0" max="99" inputmode="numeric" required></label>
+    </div>
+    <fieldset class="pens" id="pens" hidden>
+      <legend>Empate: ¿quién ganó por penales?</legend>
+      <label><input type="radio" name="pen" id="pen-home"> <span id="pen-home-name"></span></label>
+      <label><input type="radio" name="pen" id="pen-away"> <span id="pen-away-name"></span></label>
+    </fieldset>
+    <p class="admin-msg" id="score-msg" role="status"></p>
+    <div class="score-actions">
+      <button class="btn btn-yes btn-sm" type="submit" id="score-save">Guardar</button>
+      <button class="btn-link" type="button" id="score-clear">Borrar resultado</button>
+      <button class="btn-link" type="button" id="score-cancel">Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<footer class="footer">Domingo 18 de octubre · 18:00 hrs · Que gane el mejor</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="config.js"></script>
+<script src="effects.js"></script>
+<script src="common.js"></script>
+<script src="torneo.js"></script>
+</body>
+</html>
