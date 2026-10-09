@@ -1,6 +1,6 @@
 # El Supremo Papá del FIFA 2026
 
-Web del torneo de apertura de la nueva casa (sábado 24 de octubre, 18:00 hrs).
+Web del torneo de apertura de la nueva casa (domingo 18 de octubre, 18:00 hrs).
 
 Los 16 convocados aparecen de incógnito. Cada uno recibe un link personal (`/?c=CODIGO`). Al entrar, elige **Asistiré** o **No asistiré**. Su card gira y se revela para todos: a color con el sello CONFIRMADO y confeti, o en blanco y negro y tachada con RECHAZADO. La página se actualiza sola cada 15 s.
 
