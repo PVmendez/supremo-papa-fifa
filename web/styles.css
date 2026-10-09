@@ -257,6 +257,62 @@ a.brand { text-decoration: none; }
 .steal-mid strong { font-family: var(--f-label); font-size: 28px; letter-spacing: 2px; }
 .steal-stamp { background: var(--red); color: var(--paper); font-family: var(--f-display); font-size: 48px; text-transform: uppercase; padding: 4px 22px; border: 4px solid var(--paper); transform: rotate(-8deg); }
 
+/* Escenario de la página: el último resultado, compacto. La animación grande va en la capa .overlay. */
+.stage { padding: 24px 16px; margin-bottom: 24px; }
+.stage-inner { min-height: 0; }
+.stage .stage-photo { width: clamp(90px, 12vw, 130px); }
+.stage .stage-player strong, .stage .reveal strong { font-size: clamp(26px, 3.5vw, 38px); }
+.stage .stage-player small, .stage .reveal small { font-size: 18px; }
+.stage .crest-xl { width: 110px; height: 110px; padding: 10px; }
+.stage .crest-lg { width: 80px; height: 80px; padding: 8px; }
+.stage .steal-stamp { font-size: 32px; }
+.stage-idle { font-size: clamp(24px, 4vw, 36px); }
+
+.overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center; padding: 24px 16px;
+  background: radial-gradient(circle at 50% 40%, rgba(30,58,95,.97), rgba(15,31,51,.98) 60%, rgba(10,10,10,.99));
+  color: var(--paper); cursor: pointer; perspective: 1200px;
+}
+.overlay[hidden] { display: none; }
+.overlay-inner { width: 100%; max-width: 1100px; }
+.overlay .stage-photo { width: clamp(150px, 24vw, 280px); }
+.overlay .stage-player strong, .overlay .reveal strong { font-size: clamp(40px, 7vw, 84px); }
+.overlay .stage-player small, .overlay .reveal small { font-size: clamp(22px, 3vw, 32px); }
+.overlay .crest-xl { width: clamp(170px, 24vw, 260px); height: clamp(170px, 24vw, 260px); padding: clamp(14px, 2vw, 22px); }
+.overlay .envelope { width: clamp(200px, 30vw, 340px); }
+body.overlay-open { overflow: hidden; }
+
+.team-tile { transition: box-shadow .3s ease, background-color .3s ease; }
+.team-tile.just-drawn { background: #fff7d6; box-shadow: 4px 4px 0 var(--gold), 0 0 0 4px var(--gold); }
+
+/* Panel del organizador anclado abajo mientras maneja el sorteo. */
+.admin.docked { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; padding: 0; }
+.admin.docked .admin-inner {
+  max-width: none; border: 0; border-top: 4px solid var(--gold);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  box-shadow: 0 -6px 20px rgba(0,0,0,.35);
+}
+.admin.docked h2 { font-size: 20px; }
+.admin.docked .admin-head { order: 3; margin-left: auto; }
+.admin.docked .admin-actions { gap: 10px; }
+.admin.docked .btn { min-height: 44px; min-width: 0; font-size: 22px; padding: 4px 16px; }
+.admin.docked .steal { gap: 8px; align-items: flex-end; }
+.admin.docked .steal label { font-size: 10px; }
+.admin.docked .steal select { min-width: 130px; min-height: 40px; padding: 4px 8px; }
+.admin.docked .admin-msg { min-height: 0; flex-basis: 100%; }
+.admin.docked .admin-msg:empty { display: none; }
+body.has-dock { padding-bottom: 96px; }
+@media (max-width: 720px) {
+  .admin.docked h2 { display: none; }
+  .admin.docked .steal select { min-width: 0; width: 100%; }
+  .admin.docked .steal label { flex: 1 1 0; }
+  .admin.docked .steal { flex: 1 1 100%; }
+  .admin.docked .admin-actions { flex: 1 1 auto; }
+  body.has-dock { padding-bottom: 190px; }
+}
+
 .board-wrap { padding: 0 16px 64px; }
 .board-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
 .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 20px; }

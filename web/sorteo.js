@@ -8,6 +8,8 @@
   var animate = !!gsap && !reduced;
 
   var stage = document.getElementById("stage");
+  var overlay = document.getElementById("overlay");
+  var overlayStage = document.getElementById("overlay-stage");
   var board = document.getElementById("board");
   var waiting = document.getElementById("waiting");
 
@@ -41,6 +43,7 @@
       state.teams.filter(function (t) { return t.tier === tier.id; }).forEach(function (t) {
         var p = owner[t.id];
         var tile = el("div", "team-tile" + (p ? " taken" : ""));
+        tile.dataset.team = t.id;
         tile.appendChild(S.crest(t));
         var info = el("div", "team-info");
         info.appendChild(el("b", null, t.name));
@@ -129,9 +132,9 @@
     return row;
   }
 
-  function playDraw(ev, done) {
+  function playDraw(ev, box, done) {
     var team = teamOf(ev.team), p = playerOf(ev.num);
-    stage.replaceChildren();
+    box.replaceChildren();
     var row = el("div", "stage-row");
     var who = playerBlock(p, "Le toca a");
     var env = el("div", "envelope");
@@ -139,7 +142,7 @@
     env.appendChild(el("span", "envelope-q", "?"));
     row.appendChild(who);
     row.appendChild(env);
-    stage.appendChild(row);
+    box.appendChild(row);
 
     var tierColor = { oro: "#D4AF37", plata: "#C9D3E0", bronce: "#b0764a", maldito: "#9B2335" }[team.tier];
     gsap.timeline({ onComplete: done })
@@ -162,11 +165,11 @@
       .to({}, { duration: 1.4 });
   }
 
-  function playSteal(ev, done) {
+  function playSteal(ev, box, done) {
     var team = teamOf(ev.team);
-    stage.replaceChildren();
+    box.replaceChildren();
     var row = stealRow(ev, team);
-    stage.appendChild(row);
+    box.appendChild(row);
     var stamp = row.querySelector(".steal-stamp");
     var crest = row.querySelector(".steal-mid .crest");
     gsap.timeline({ onComplete: done })
@@ -191,10 +194,68 @@
     }
     if (!isNew) { if (!busy) renderBoard(); return; }
     shownEvent = ev.id;
-    if (!animate || ev.kind === "reset" || !teamOf(ev.team)) { staticEvent(ev); renderBoard(); return; }
+    if (!animate || ev.kind === "reset" || !teamOf(ev.team)) { staticEvent(ev); renderBoard(); highlight(ev); return; }
     busy = true;
-    var finish = function () { busy = false; renderBoard(); };
-    if (ev.kind === "draw") playDraw(ev, finish); else playSteal(ev, finish);
+    openOverlay();
+    var finish = function () {
+      closeOverlay(function () {
+        busy = false;
+        staticEvent(ev);
+        renderBoard();
+        highlight(ev);
+      });
+    };
+    if (ev.kind === "draw") playDraw(ev, overlayStage, finish); else playSteal(ev, overlayStage, finish);
+  }
+
+  /* La animación corre en una capa a pantalla completa: se ve entera estés donde estés en la página. */
+  var skipHold = null;
+
+  function openOverlay() {
+    overlay.hidden = false;
+    document.body.classList.add("overlay-open");
+    gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.25 });
+  }
+
+  function closeOverlay(after) {
+    // Se deja el resultado a la vista un rato (o hasta que toquen la pantalla) y después se cierra.
+    var closed = false;
+    var close = function () {
+      if (closed) return;
+      closed = true;
+      skipHold = null;
+      gsap.to(overlay, { opacity: 0, duration: 0.35, onComplete: function () {
+        overlay.hidden = true;
+        overlayStage.replaceChildren();
+        document.body.classList.remove("overlay-open");
+        after();
+      } });
+    };
+    skipHold = close;
+    setTimeout(close, 2200);
+  }
+
+  overlay.addEventListener("click", function () { if (skipHold) skipHold(); });
+
+  /** Marca en el tablero el equipo que acaba de salir (o los dos de un robo) y lo trae a la vista. */
+  function highlight(ev) {
+    if (!ev || ev.kind === "reset") return;
+    var teams = [ev.team];
+    if (ev.kind === "steal") {
+      var victim = state.players.find(function (p) { return p.num === ev.victim; });
+      if (victim) teams.push(victim.team);
+    }
+    var tiles = teams.map(function (id) { return board.querySelector('[data-team="' + id + '"]'); }).filter(Boolean);
+    if (!tiles.length) return;
+    var r = tiles[0].getBoundingClientRect();
+    var bar = document.getElementById("admin");
+    var bottom = window.innerHeight - (bar && !bar.hidden && bar.classList.contains("docked") ? bar.offsetHeight : 0);
+    if (r.top < 60 || r.bottom > bottom) tiles[0].scrollIntoView({ behavior: animate ? "smooth" : "auto", block: "center" });
+    tiles.forEach(function (t) {
+      t.classList.add("just-drawn");
+      if (animate) gsap.fromTo(t, { scale: 1 }, { scale: 1.06, duration: 0.25, yoyo: true, repeat: 3, ease: "power2.inOut", clearProps: "transform" });
+      setTimeout(function () { t.classList.remove("just-drawn"); }, 6000);
+    });
   }
 
   function load() {
@@ -233,7 +294,13 @@
   }
 
   function initAdmin() {
-    gate = S.adminGate(function (on) { adminOn = on; renderAdminSelects(); });
+    gate = S.adminGate(function (on) {
+      adminOn = on;
+      // Con el organizador adentro, los controles quedan fijos abajo de la pantalla.
+      document.getElementById("admin").classList.toggle("docked", on);
+      document.body.classList.toggle("has-dock", on);
+      renderAdminSelects();
+    });
     var next = document.getElementById("btn-next");
     next.addEventListener("click", function () { if (!busy) run(next, "/admin/draw/next"); });
     var steal = document.getElementById("btn-steal");
