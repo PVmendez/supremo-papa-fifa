@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>La noche de los sobres · Supremo Papá 2026</title>
+<meta name="description" content="Sorteo de equipos del Supremo Papá del FIFA 2026.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;800&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">Supremo Papá · 2026</a>
+  <nav>
+    <a href="/">Convocados</a>
+    <a href="/sorteo" aria-current="page">Sorteo</a>
+    <a href="/torneo">Torneo</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero hero-tight">
+    <p class="kicker">Sorteo de equipos</p>
+    <h1>La noche<br>de los sobres</h1>
+    <ul class="rules">
+      <li><b>16 sobres en 4 bombos:</b> Oro, Plata, Bronce y Maldito. Cada uno abre el suyo a ciegas.</li>
+      <li><b>Comodín del ladrón:</b> una vez en la noche podés quedarte con el equipo de otro y dejarle el tuyo. El equipo robado queda con candado.</li>
+      <li><b>Facundo</b>, campeón defensor, abre último y no puede robar. <b>Bruno</b>, subcampeón, abre anteúltimo y tiene doble robo.</li>
+    </ul>
+  </section>
+
+  <section class="stage" aria-live="polite">
+    <div class="stage-inner" id="stage">
+      <p class="stage-idle">Esperando el primer sobre…</p>
+    </div>
+  </section>
+
+  <section class="admin" id="admin" hidden>
+    <div class="admin-inner">
+      <h2>Panel del organizador</h2>
+      <form class="admin-token" id="token-form">
+        <label for="token">Token de admin</label>
+        <input id="token" type="password" autocomplete="off" placeholder="Pegá el token">
+        <button class="btn btn-yes btn-sm" type="submit">Guardar</button>
+      </form>
+      <div class="admin-actions" id="admin-actions" hidden>
+        <button class="btn btn-yes" id="btn-next" type="button">Abrir siguiente sobre</button>
+        <div class="steal">
+          <label>Ladrón <select id="thief"></select></label>
+          <label>Le roba a <select id="victim"></select></label>
+          <button class="btn btn-no" id="btn-steal" type="button">¡Robar!</button>
+        </div>
+        <button class="btn-link" id="btn-reset" type="button">Reiniciar sorteo</button>
+      </div>
+      <p class="admin-msg" id="admin-msg" role="status"></p>
+    </div>
+  </section>
+
+  <section class="board-wrap">
+    <div class="board-inner">
+      <div class="board" id="board"></div>
+      <div class="waiting" id="waiting"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">Domingo 18 de octubre · 18:00 hrs · Que gane el mejor</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="config.js"></script>
+<script src="effects.js"></script>
+<script src="common.js"></script>
+<script src="sorteo.js"></script>
+</body>
+</html>

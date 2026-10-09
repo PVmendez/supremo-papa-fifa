@@ -15,7 +15,8 @@ navegador ──► Cloudflare Pages ──┬── /*      ──► web/ (est
 
 | Ruta | Qué hay |
 |------|---------|
-| `web/` | Sitio: `index.html`, `styles.css`, `app.js`, `effects.js` (animaciones GSAP), `img/NN.jpg` |
+| `web/` | Sitio: `index.html`, `sorteo.html`, `torneo.html`, `styles.css`, `app.js`, `sorteo.js`, `torneo.js`, `common.js`, `effects.js` (animaciones GSAP), `img/NN.jpg` |
+| `lib/tournament.js` | Formato del torneo, grupos, tablas y llave (sin dependencias) |
 | `functions/api/[[path]].js` | La API (Pages Function) |
 | `schema.sql` | Tabla `guests` |
 | `scripts/guests.json` | Lista de invitados |
@@ -31,7 +32,35 @@ navegador ──► Cloudflare Pages ──┬── /*      ──► web/ (est
 | `POST` | `/api/rsvp` | `{ "code": "ABC234", "status": "yes" \| "no" }`. Se puede cambiar la respuesta |
 | `POST` | `/api/admin/reset` | `{ "num": 3 }` + header `x-admin-token`. Vuelve un invitado a pendiente |
 
+| `GET`  | `/api/draw` | Sorteo: equipos, quién tiene cada uno, quién falta y el último movimiento |
+| `POST` | `/api/admin/draw/next` | Abre el sobre del siguiente jugador |
+| `POST` | `/api/admin/draw/steal` | `{ "thief": 1, "victim": 2 }`. Comodín del ladrón |
+| `POST` | `/api/admin/draw/reset` | Borra el sorteo |
+| `GET`  | `/api/tournament` | Grupos con tabla, partidos, llave y campeón |
+| `POST` | `/api/admin/tournament/start` | Arma grupos y fixture con los que tienen equipo |
+| `POST` | `/api/admin/tournament/result` | `{ "id": 5, "hg": 2, "ag": 1, "pen_winner"?: 3 }`. Con `null` borra el resultado |
+| `POST` | `/api/admin/tournament/reset` | Borra el torneo |
+
+Todas las rutas `/api/admin/*` piden el header `x-admin-token`.
+
 Los códigos nunca llegan al front público: solo se resuelven en la Function.
+
+## Sorteo y torneo
+
+**`/sorteo` · La noche de los sobres.** Entran los que confirmaron. Hay 16 equipos en 4 bombos (Oro, Plata, Bronce, Maldito); la lista está en `TEAMS`, en `functions/api/[[path]].js`. Cada sobre se abre al azar y se anima en todas las pantallas. Cada jugador tiene un robo: se queda con el equipo de otro y le deja el suyo, y el equipo robado queda con candado. Facundo (#3, campeón) abre último y no roba; Bruno (#14, subcampeón) abre anteúltimo y tiene dos robos.
+
+**`/torneo`.** Con el sorteo terminado, el organizador toca "Armar grupos". El formato depende de cuántos jugadores tengan equipo:
+
+| Jugadores | Grupos | Pasan |
+|-----------|--------|-------|
+| 4-5 | 1 | los 4 primeros a semis |
+| 6-8 | 2 | 2 por grupo a semis |
+| 9-11 | 3 | 2 por grupo + 2 mejores terceros a cuartos |
+| 12-16 | 4 | 2 por grupo a cuartos |
+
+Los grupos se reparten con un equipo de cada bombo. Los partidos se asignan a la consola 1 o 2. Cuando terminan los grupos se arma la llave sola, y cada ronda se completa al cargar los ganadores. Si hay empate en la llave, se elige quién ganó por penales.
+
+Para manejarlo, abrí `/sorteo?admin` o `/torneo?admin` y pegá el `ADMIN_TOKEN`: queda guardado en ese navegador.
 
 ## Verla en tu máquina
 
