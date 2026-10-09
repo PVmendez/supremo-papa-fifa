@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS guests (
   updated_at TEXT
 );
 
--- Sorteo de equipos ("La noche de los sobres"). Un equipo por jugador.
--- locked = el equipo fue robado y ya no se puede volver a robar. steals = robos que usó ese jugador.
+-- Sorteo de equipos: un equipo por jugador, en el orden en que los eligieron.
+-- locked y steals quedaron de la versión con robos y no se usan.
 CREATE TABLE IF NOT EXISTS picks (
   num        INTEGER PRIMARY KEY,
   team       TEXT    NOT NULL UNIQUE,
@@ -16,16 +16,6 @@ CREATE TABLE IF NOT EXISTS picks (
   locked     INTEGER NOT NULL DEFAULT 0,
   steals     INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT
-);
-
--- Lo que va pasando en el sorteo, para que todas las pantallas animen el último movimiento.
-CREATE TABLE IF NOT EXISTS draw_log (
-  id     INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind   TEXT    NOT NULL CHECK (kind IN ('draw', 'steal', 'reset')),
-  num    INTEGER,
-  team   TEXT,
-  victim INTEGER,
-  at     TEXT    NOT NULL
 );
 
 -- Torneo: grupo de cada jugador y todos los partidos (grupos y llave).
@@ -48,4 +38,21 @@ CREATE TABLE IF NOT EXISTS matches (
   ag         INTEGER,
   pen_winner INTEGER,
   updated_at TEXT
+);
+
+-- Sorteo por penales: la fila de pateadores y lo que va pasando (para animarlo en todas las pantallas).
+CREATE TABLE IF NOT EXISTS penalty_queue (
+  num INTEGER PRIMARY KEY,
+  pos INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS penalty_log (
+  id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind   TEXT    NOT NULL CHECK (kind IN ('start', 'shot', 'pick', 'reset')),
+  num    INTEGER,
+  zone   TEXT,
+  dive   TEXT,
+  result TEXT,
+  team   TEXT,
+  at     TEXT    NOT NULL
 );

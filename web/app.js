@@ -169,6 +169,11 @@
       inviteText.textContent = "Estás convocado al torneo que define al Supremo Papá del FIFA 2026. ¿Te presentás?";
     }
     buttons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.status === me.status)); });
+    // Con el mismo link se patea en el sorteo de equipos: queda guardado en este celular.
+    var toDraw = document.getElementById("invite-sorteo");
+    toDraw.hidden = me.status !== "yes";
+    toDraw.href = "/sorteo?c=" + encodeURIComponent(code);
+    try { localStorage.setItem("supremo-guest-code", code); } catch (e) { /* sin storage: queda el link */ }
   }
 
   function answer(status, btn) {

@@ -6,11 +6,14 @@
 //   POST /api/admin/reset    -> { num }  (header x-admin-token) vuelve a "pending"
 //   POST /api/admin/check    -> 200 si el código del organizador (header x-admin-token) es correcto
 //
-// Sorteo de equipos ("La noche de los sobres"):
-//   GET  /api/draw                 -> equipos, quién tiene cada uno, quién falta y el último movimiento
-//   POST /api/admin/draw/next      -> abre el sobre del siguiente jugador (al azar entre los confirmados sin equipo)
-//   POST /api/admin/draw/steal     -> { thief, victim } el ladrón se queda con el equipo de la víctima y le deja el suyo
-//   POST /api/admin/draw/reset     -> borra el sorteo
+// Sorteo de equipos por penales (ver lib/penalty.js):
+//   GET  /api/draw            -> equipos, quién tiene cada uno, la fila de pateadores, a quién le toca y el último movimiento
+//   POST /api/draw/start      -> (organizador) arma la fila al azar con los confirmados
+//   POST /api/draw/shoot      -> { zone, expect } patea el que está primero en la fila
+//   POST /api/draw/pick       -> { team, expect } el que hizo el gol elige equipo
+//   POST /api/admin/draw/reset -> borra el sorteo
+// shoot y pick los puede hacer el organizador (x-admin-token) o el propio jugador con su código (x-guest-code).
+// expect es el número del jugador que la pantalla cree que está pateando, para no patear por otro.
 //
 // Torneo (grupos + llave, ver lib/tournament.js):
 //   GET  /api/tournament               -> grupos con tabla, partidos, llave y campeón
@@ -20,13 +23,14 @@
 //
 // Bindings: DB (D1) y la variable secreta ADMIN_TOKEN.
 
+import { shoot, ZONES } from "../../lib/penalty.js";
 import {
   MIN_PLAYERS, formatFor, buildGroups, groupMatches, standings, qualifiers, firstRound, stagesFor, winnerOf, isPlayed,
 } from "../../lib/tournament.js";
 
 const VALID = new Set(["yes", "no"]);
 
-// Los 16 sobres, en 4 bombos. Para cambiar un equipo basta con editar esta lista (el id no puede repetirse).
+// Los 16 equipos, en 4 bombos. Para cambiar un equipo basta con editar esta lista (el id no puede repetirse).
 // El escudo de cada uno está en web/img/escudos/<id>.png.
 const TIERS = [
   { id: "oro", name: "Oro" },
@@ -54,12 +58,6 @@ const TEAMS = [
 ];
 const TEAM_IDS = new Set(TEAMS.map((t) => t.id));
 
-// Reglas especiales: el campeón defensor (Facundo, #3) abre último y no puede robar;
-// el subcampeón (Bruno, #14) abre anteúltimo y tiene doble robo. El resto, un robo cada uno.
-const CHAMPION = 3;
-const RUNNER_UP = 14;
-const OPENS_LAST = [RUNNER_UP, CHAMPION];
-const maxSteals = (num) => (num === CHAMPION ? 0 : num === RUNNER_UP ? 2 : 1);
 const CODE_RE = /^[A-Z0-9]{4,12}$/;
 
 const json = (status, body) =>
@@ -111,77 +109,106 @@ function randomIndex(n) {
 }
 
 async function drawState(db) {
-  const [guests, picks, last] = await db.batch([
+  const [guests, picks, queue, last] = await db.batch([
     db.prepare("SELECT num, name, photo FROM guests WHERE status = 'yes' ORDER BY num"),
-    db.prepare("SELECT num, team, ord, locked, steals FROM picks ORDER BY ord"),
-    db.prepare("SELECT id, kind, num, team, victim FROM draw_log ORDER BY id DESC LIMIT 1"),
+    db.prepare("SELECT num, team, ord FROM picks ORDER BY ord"),
+    db.prepare("SELECT num, pos FROM penalty_queue ORDER BY pos"),
+    db.prepare("SELECT id, kind, num, zone, dive, result, team FROM penalty_log ORDER BY id DESC LIMIT 1"),
   ]);
+  const person = (g) => ({ num: g.num, name: g.name, photo: g.photo ?? null });
   const confirmed = new Map(guests.results.map((g) => [g.num, g]));
-  const taken = new Set();
   const players = picks.results
     .filter((p) => confirmed.has(p.num) && TEAM_IDS.has(p.team))
-    .map((p) => {
-      taken.add(p.num);
-      const g = confirmed.get(p.num);
-      return { num: p.num, name: g.name, photo: g.photo ?? null, team: p.team, ord: p.ord,
-        locked: !!p.locked, steals: p.steals, maxSteals: maxSteals(p.num) };
-    });
-  const waiting = guests.results
-    .filter((g) => !taken.has(g.num))
-    .map((g) => ({ num: g.num, name: g.name, photo: g.photo ?? null }));
-  return { tiers: TIERS, teams: TEAMS, players, waiting, last: last.results[0] || null };
+    .map((p) => ({ ...person(confirmed.get(p.num)), team: p.team, ord: p.ord }));
+  const hasTeam = new Set(players.map((p) => p.num));
+  const waiting = guests.results.filter((g) => !hasTeam.has(g.num));
+
+  // La fila: los que ya estaban, en su orden, y al final los que confirmaron después de empezar.
+  const started = queue.results.length > 0 || players.length > 0;
+  const inQueue = new Set(queue.results.map((q) => q.num));
+  const line = queue.results.filter((q) => confirmed.has(q.num) && !hasTeam.has(q.num)).map((q) => q.num);
+  if (started) waiting.forEach((g) => { if (!inQueue.has(g.num)) line.push(g.num); });
+
+  // Después de un gol, el que lo hizo tiene que elegir equipo antes de que patee el siguiente.
+  const ev = last.results[0] || null;
+  const scorer = ev && ev.kind === "shot" && ev.result === "gol" && line.includes(ev.num) ? ev.num : null;
+  const phase = !started ? "idle" : scorer != null ? "pick" : line.length ? "shoot" : "done";
+  return {
+    tiers: TIERS, teams: TEAMS, players,
+    queue: line.map((num) => person(confirmed.get(num))),
+    waiting: started ? [] : waiting.map(person),
+    phase, current: scorer ?? line[0] ?? null, last: ev,
+  };
 }
 
-function logEvent(db, kind, num, team, victim) {
+function logEvent(db, kind, f = {}) {
   return db
-    .prepare("INSERT INTO draw_log (kind, num, team, victim, at) VALUES (?1, ?2, ?3, ?4, ?5)")
-    .bind(kind, num ?? null, team ?? null, victim ?? null, new Date().toISOString());
+    .prepare("INSERT INTO penalty_log (kind, num, zone, dive, result, team, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)")
+    .bind(kind, f.num ?? null, f.zone ?? null, f.dive ?? null, f.result ?? null, f.team ?? null, new Date().toISOString());
 }
 
-async function drawNext(db) {
+/** Guarda la fila tal como la muestra drawState (con los que se sumaron tarde al final). */
+function saveQueue(db, state) {
+  return [
+    db.prepare("DELETE FROM penalty_queue"),
+    ...state.queue.map((p, i) => db.prepare("INSERT INTO penalty_queue (num, pos) VALUES (?1, ?2)").bind(p.num, i + 1)),
+  ];
+}
+
+async function drawStart(db) {
   const state = await drawState(db);
+  if (state.phase !== "idle") return { error: "already_started" };
   if (!state.waiting.length) return { error: "nobody_waiting" };
-  const usedTeams = new Set(state.players.map((p) => p.team));
-  const free = TEAMS.filter((t) => !usedTeams.has(t.id));
-  if (!free.length) return { error: "no_teams_left" };
+  const line = state.waiting.slice();
+  for (let i = line.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1);
+    [line[i], line[j]] = [line[j], line[i]];
+  }
+  await db.batch([...saveQueue(db, { queue: line }), logEvent(db, "start")]);
+  return { ok: true };
+}
 
-  // Primero el resto al azar; después el subcampeón y al final el campeón.
-  const regular = state.waiting.filter((g) => !OPENS_LAST.includes(g.num));
-  const player = regular.length
-    ? regular[randomIndex(regular.length)]
-    : state.waiting.find((g) => g.num === OPENS_LAST[0]) || state.waiting[0];
-  const team = free[randomIndex(free.length)];
+async function drawShoot(db, body) {
+  const state = await drawState(db);
+  if (state.phase !== "shoot") return { error: state.phase === "pick" ? "must_pick" : "not_shooting" };
+  if (Number(body?.expect) !== state.current) return { error: "not_your_turn" };
+  const zone = String(body?.zone || "");
+  if (!ZONES.includes(zone)) return { error: "invalid_zone" };
+
+  const { dive, result } = shoot(zone, randomIndex);
+  const stmts = saveQueue(db, state);
+  // Si no fue gol, pasa al final de la fila.
+  if (result !== "gol") stmts.push(db.prepare("UPDATE penalty_queue SET pos = ?1 WHERE num = ?2").bind(state.queue.length + 1, state.current));
+  stmts.push(logEvent(db, "shot", { num: state.current, zone, dive, result }));
+  await db.batch(stmts);
+  return { ok: true };
+}
+
+async function drawPick(db, body) {
+  const state = await drawState(db);
+  if (state.phase !== "pick") return { error: "not_picking" };
+  if (Number(body?.expect) !== state.current) return { error: "not_your_turn" };
+  const team = String(body?.team || "");
+  if (!TEAM_IDS.has(team)) return { error: "invalid_team" };
+  if (state.players.some((p) => p.team === team)) return { error: "team_taken" };
+
   const ord = state.players.reduce((m, p) => Math.max(m, p.ord), 0) + 1;
-
   await db.batch([
-    db.prepare("DELETE FROM picks WHERE num = ?1").bind(player.num),
+    ...saveQueue(db, state),
+    db.prepare("DELETE FROM penalty_queue WHERE num = ?1").bind(state.current),
+    db.prepare("DELETE FROM picks WHERE num = ?1").bind(state.current),
     db.prepare("INSERT INTO picks (num, team, ord, updated_at) VALUES (?1, ?2, ?3, ?4)")
-      .bind(player.num, team.id, ord, new Date().toISOString()),
-    logEvent(db, "draw", player.num, team.id, null),
+      .bind(state.current, team, ord, new Date().toISOString()),
+    logEvent(db, "pick", { num: state.current, team }),
   ]);
   return { ok: true };
 }
 
-async function drawSteal(db, thiefNum, victimNum) {
-  if (thiefNum === victimNum) return { error: "same_player" };
-  const state = await drawState(db);
-  const thief = state.players.find((p) => p.num === thiefNum);
-  const victim = state.players.find((p) => p.num === victimNum);
-  if (!thief || !victim) return { error: "both_need_team" };
-  if (thief.steals >= thief.maxSteals) return { error: "no_steals_left" };
-  if (victim.locked) return { error: "team_locked" };
-
-  // team es UNIQUE: se pasa por un valor temporal para intercambiar sin chocar.
-  const now = new Date().toISOString();
-  await db.batch([
-    db.prepare("UPDATE picks SET team = '__swap' WHERE num = ?1").bind(thiefNum),
-    db.prepare("UPDATE picks SET team = ?1, locked = ?2, updated_at = ?3 WHERE num = ?4")
-      .bind(thief.team, thief.locked ? 1 : 0, now, victimNum),
-    db.prepare("UPDATE picks SET team = ?1, locked = 1, steals = steals + 1, updated_at = ?2 WHERE num = ?3")
-      .bind(victim.team, now, thiefNum),
-    logEvent(db, "steal", thiefNum, victim.team, victimNum),
-  ]);
-  return { ok: true };
+/** El organizador puede patear y elegir por cualquiera; un jugador, solo cuando le toca a él. */
+async function canPlay(request, env, db, num) {
+  if (sameToken(request.headers.get("x-admin-token") || "", env.ADMIN_TOKEN || "")) return true;
+  const g = await findByCode(db, request.headers.get("x-guest-code"));
+  return !!g && g.status === "yes" && g.num === num;
 }
 
 /* ---------- Torneo ---------- */
@@ -229,7 +256,7 @@ async function tournamentState(db) {
 
 async function startTournament(db) {
   const { people, groups } = await tournamentData(db);
-  if (groups.length) return { error: "already_started" };
+  if (groups.length) return { error: "groups_already_built" };
   const players = people.filter((p) => teamById.has(p.team)).map((p) => ({ num: p.num, tier: teamById.get(p.team).tier }));
   const built = buildGroups(players, randomIndex);
   if (!built) return { error: "invalid_player_count" };
@@ -365,23 +392,22 @@ export async function onRequest({ request, env }) {
       return json(200, await drawState(db));
     }
 
-    if (method === "POST" && path.startsWith("/admin/draw/")) {
-      if (!sameToken(request.headers.get("x-admin-token") || "", env.ADMIN_TOKEN || "")) {
-        return json(401, { error: "unauthorized" });
-      }
+    if (method === "POST" && (path.startsWith("/draw/") || path === "/admin/draw/reset")) {
+      const isAdmin = sameToken(request.headers.get("x-admin-token") || "", env.ADMIN_TOKEN || "");
       // Con el torneo armado, el sorteo queda cerrado: los grupos dependen de los equipos.
       if (await db.prepare("SELECT 1 FROM tgroups LIMIT 1").first()) return json(409, { error: "tournament_started" });
       let result;
-      if (path === "/admin/draw/next") {
-        result = await drawNext(db);
-      } else if (path === "/admin/draw/steal") {
+      if (path === "/draw/start" || path === "/admin/draw/reset") {
+        if (!isAdmin) return json(401, { error: "unauthorized" });
+        if (path === "/draw/start") result = await drawStart(db);
+        else {
+          await db.batch([db.prepare("DELETE FROM picks"), db.prepare("DELETE FROM penalty_queue"), logEvent(db, "reset")]);
+          result = { ok: true };
+        }
+      } else if (path === "/draw/shoot" || path === "/draw/pick") {
         const body = await readJson(request);
-        const thief = Number(body?.thief), victim = Number(body?.victim);
-        if (!Number.isInteger(thief) || !Number.isInteger(victim)) return json(400, { error: "invalid_num" });
-        result = await drawSteal(db, thief, victim);
-      } else if (path === "/admin/draw/reset") {
-        await db.batch([db.prepare("DELETE FROM picks"), logEvent(db, "reset", null, null, null)]);
-        result = { ok: true };
+        if (!(await canPlay(request, env, db, Number(body?.expect)))) return json(401, { error: "unauthorized" });
+        result = path === "/draw/shoot" ? await drawShoot(db, body) : await drawPick(db, body);
       } else {
         return json(404, { error: "not_found" });
       }

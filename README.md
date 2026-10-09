@@ -33,22 +33,23 @@ navegador ──► Cloudflare Pages ──┬── /*      ──► web/ (est
 | `POST` | `/api/admin/reset` | `{ "num": 3 }` + header `x-admin-token`. Vuelve un invitado a pendiente |
 | `POST` | `/api/admin/check` | Valida el código del organizador (header `x-admin-token`) |
 
-| `GET`  | `/api/draw` | Sorteo: equipos, quién tiene cada uno, quién falta y el último movimiento |
-| `POST` | `/api/admin/draw/next` | Abre el sobre del siguiente jugador |
-| `POST` | `/api/admin/draw/steal` | `{ "thief": 1, "victim": 2 }`. Comodín del ladrón |
+| `GET`  | `/api/draw` | Sorteo: equipos, quién tiene cada uno, la fila de pateadores y a quién le toca |
+| `POST` | `/api/draw/start` | (organizador) Arma la fila al azar con los confirmados |
+| `POST` | `/api/draw/shoot` | `{ "zone": "tl", "expect": 3 }`. Patea el primero de la fila |
+| `POST` | `/api/draw/pick` | `{ "team": "rma", "expect": 3 }`. El que hizo el gol elige equipo |
 | `POST` | `/api/admin/draw/reset` | Borra el sorteo |
 | `GET`  | `/api/tournament` | Grupos con tabla, partidos, llave y campeón |
 | `POST` | `/api/admin/tournament/start` | Arma grupos y fixture con los que tienen equipo |
 | `POST` | `/api/admin/tournament/result` | `{ "id": 5, "hg": 2, "ag": 1, "pen_winner"?: 3 }`. Con `null` borra el resultado |
 | `POST` | `/api/admin/tournament/reset` | Borra el torneo |
 
-Todas las rutas `/api/admin/*` piden el header `x-admin-token`.
+Todas las rutas `/api/admin/*` piden el header `x-admin-token`. `shoot` y `pick` aceptan el del organizador o el código del jugador que patea (`x-guest-code`).
 
 Los códigos nunca llegan al front público: solo se resuelven en la Function.
 
 ## Sorteo y torneo
 
-**`/sorteo` · La noche de los sobres.** Entran los que confirmaron. Hay 16 equipos en 4 bombos (Oro, Plata, Bronce, Maldito); la lista está en `TEAMS`, en `functions/api/[[path]].js`. Cada sobre se abre al azar y se anima en todas las pantallas. Cada jugador tiene un robo: se queda con el equipo de otro y le deja el suyo, y el equipo robado queda con candado. Facundo (#3, campeón) abre último y no roba; Bruno (#14, subcampeón) abre anteúltimo y tiene dos robos.
+**`/sorteo` · La tanda de penales.** Entran los que confirmaron. El organizador toca "Empezar sorteo" y se sortea el orden de la fila. Patea el primero: elige uno de los 5 lugares del arco y el arquero se tira al azar (la lógica está en `lib/penalty.js`; cualquier lugar es gol 2 de cada 3 veces). Con gol elige el equipo que quiera de los que quedan; si se la atajan, pega en el palo o se va afuera, pasa al final de la fila. Cada penal y cada elección se anima a pantalla completa en todas las pantallas. Patea el organizador desde su panel o el propio jugador desde su celular, si abrió `/sorteo` con su link (`/sorteo?c=CODIGO`, o el botón "Ir al sorteo" de su invitación). Los 16 equipos están en `TEAMS`, en `functions/api/[[path]].js`.
 
 **`/torneo`.** Con el sorteo terminado, el organizador toca "Armar grupos". El formato depende de cuántos jugadores tengan equipo:
 

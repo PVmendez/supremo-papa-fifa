@@ -1,4 +1,5 @@
-// La noche de los sobres: muestra el sorteo en vivo y anima cada sobre o robo en todas las pantallas.
+// La tanda de penales: el sorteo de equipos en vivo. Patea el primero de la fila; con gol elige equipo,
+// si falla vuelve al final. Cada penal y cada elección se anima a pantalla completa en todas las pantallas.
 (function () {
   "use strict";
 
@@ -6,32 +7,50 @@
   var el = S.el;
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var animate = !!gsap && !reduced;
+  var $ = function (id) { return document.getElementById(id); };
 
-  var stage = document.getElementById("stage");
-  var overlay = document.getElementById("overlay");
-  var overlayStage = document.getElementById("overlay-stage");
-  var board = document.getElementById("board");
-  var waiting = document.getElementById("waiting");
+  var board = $("board"), waitingBox = $("waiting"), turnBox = $("turn"), lineBox = $("line");
+  var overlay = $("overlay"), overlayStage = $("overlay-stage");
+  var play = $("play"), playerDock = $("player-dock"), adminSlot = $("admin-play-slot");
 
   var state = null;
   var shownEvent = null;   // id del último movimiento ya mostrado
-  var busy = false;        // mientras corre una animación no se repinta el tablero (no spoilea)
+  var busy = false;        // mientras corre una animación no se repinta nada (no spoilea)
+  var me = null;           // invitado de este celular, si entró con su link
+  var guestCode = readGuestCode();
+  var adminOn = false, gate = null, sending = false;
 
   var TIER_LABEL = { oro: "Bombo Oro", plata: "Bombo Plata", bronce: "Bombo Bronce", maldito: "Bombo Maldito" };
+  var RESULT = {
+    gol: { title: "¡GOOOL!", cls: "gol" },
+    atajada: { title: "¡LA ATAJÓ!", cls: "miss" },
+    palo: { title: "¡AL PALO!", cls: "miss" },
+    afuera: { title: "¡AFUERA!", cls: "miss" }
+  };
 
-  function teamOf(id) { return state.teams.find(function (t) { return t.id === id; }) || null; }
-  function playerOf(num) {
-    return state.players.find(function (p) { return p.num === num; }) ||
-      state.waiting.find(function (p) { return p.num === num; }) || { num: num, name: "#" + num };
+  function readGuestCode() {
+    var c = null;
+    try { c = new URLSearchParams(window.location.search).get("c"); } catch (e) { /* sin URLSearchParams */ }
+    try {
+      if (c) localStorage.setItem("supremo-guest-code", c.trim().toUpperCase());
+      else c = localStorage.getItem("supremo-guest-code");
+    } catch (e) { /* sin storage: solo vale el de la URL */ }
+    return c ? c.trim().toUpperCase() : null;
   }
 
-  /* ---------- Tablero ---------- */
+  function teamOf(id) { return state.teams.find(function (t) { return t.id === id; }) || null; }
+  function personOf(num) {
+    return state.queue.find(function (p) { return p.num === num; }) ||
+      state.players.find(function (p) { return p.num === num; }) || { num: num, name: "#" + num };
+  }
+
+  /* ---------- Tablero de equipos ---------- */
 
   var boardKey = "";
 
   function renderBoard() {
     // Solo se repinta si algo cambió: rehacerlo en cada consulta hace parpadear los escudos.
-    var key = JSON.stringify([state.players, state.waiting]);
+    var key = JSON.stringify(state.players);
     if (key === boardKey) return;
     boardKey = key;
     var owner = {};
@@ -50,10 +69,10 @@
         if (p) {
           var who = el("span", "team-owner");
           who.appendChild(S.avatar(p, "avatar-xs"));
-          who.appendChild(document.createTextNode(p.name + (p.locked ? " 🔒" : "")));
+          who.appendChild(document.createTextNode(p.name));
           info.appendChild(who);
         } else {
-          info.appendChild(el("span", "team-owner muted", "Sobre cerrado"));
+          info.appendChild(el("span", "team-owner muted", "Disponible"));
         }
         tile.appendChild(info);
         col.appendChild(tile);
@@ -61,154 +80,141 @@
       frag.appendChild(col);
     });
     board.replaceChildren(frag);
+  }
 
-    waiting.replaceChildren();
-    if (state.waiting.length) {
-      waiting.appendChild(el("h3", null, "Faltan abrir su sobre"));
-      var list = el("div", "chips");
-      state.waiting.forEach(function (p) {
-        var chip = el("span", "chip");
+  /* ---------- Turno y fila ---------- */
+
+  function renderTurn() {
+    turnBox.replaceChildren();
+    lineBox.replaceChildren();
+    var cur = state.current != null ? personOf(state.current) : null;
+
+    if (state.phase === "idle") {
+      turnBox.appendChild(el("p", "stage-idle", "Esperando que arranque el sorteo…"));
+    } else if (state.phase === "done") {
+      turnBox.appendChild(el("p", "stage-idle", "Todos tienen equipo. ¡Que empiece el torneo!"));
+    } else {
+      var row = el("div", "turn-row");
+      row.appendChild(S.avatar(cur, "avatar-lg"));
+      var txt = el("div", "turn-text");
+      txt.appendChild(el("small", null, state.phase === "pick" ? "¡Hizo el gol! Está eligiendo equipo" : "Patea"));
+      txt.appendChild(el("strong", null, cur.name));
+      row.appendChild(txt);
+      turnBox.appendChild(row);
+    }
+
+    if (state.queue.length && state.phase !== "idle") {
+      lineBox.appendChild(el("h3", null, "La fila"));
+      var chips = el("ol", "chips line-chips");
+      state.queue.forEach(function (p, i) {
+        var chip = el("li", "chip" + (p.num === state.current ? " now" : "") + (me && p.num === me.num ? " mine" : ""));
+        chip.appendChild(el("span", "chip-pos", String(i + 1)));
         chip.appendChild(S.avatar(p, "avatar-xs"));
         chip.appendChild(document.createTextNode(p.name));
-        list.appendChild(chip);
+        chips.appendChild(chip);
       });
-      waiting.appendChild(list);
-    } else if (state.players.length) {
-      waiting.appendChild(el("h3", null, "Todos tienen equipo. ¡Que empiece el torneo!"));
+      lineBox.appendChild(chips);
+    }
+
+    waitingBox.replaceChildren();
+    if (state.phase === "idle") {
+      if (state.waiting.length) {
+        waitingBox.appendChild(el("h3", null, "Entran al sorteo"));
+        var list = el("div", "chips");
+        state.waiting.forEach(function (p) {
+          var chip = el("span", "chip");
+          chip.appendChild(S.avatar(p, "avatar-xs"));
+          chip.appendChild(document.createTextNode(p.name));
+          list.appendChild(chip);
+        });
+        waitingBox.appendChild(list);
+      } else {
+        waitingBox.appendChild(el("p", "muted", "Entran al sorteo los que confirmaron asistencia."));
+      }
+    }
+  }
+
+  /* ---------- Controles: patear y elegir ---------- */
+
+  function canControl() {
+    if (!state || (state.phase !== "shoot" && state.phase !== "pick")) return false;
+    return adminOn || !!(me && me.num === state.current);
+  }
+
+  var playKey = "";
+
+  function renderPlay() {
+    $("btn-start").hidden = !adminOn || !state || state.phase !== "idle";
+    var show = canControl() && !busy;
+    // Los controles van en el panel del organizador o, si patea el propio jugador, en su barra de abajo.
+    var host = adminOn ? adminSlot : playerDock;
+    if (play.parentNode !== host) host.appendChild(play);
+    playerDock.hidden = adminOn || !show;
+    document.body.classList.toggle("has-dock", adminOn || show);
+    play.hidden = !show;
+    if (!show) { playKey = ""; return; }
+
+    var key = state.phase + ":" + state.current + ":" + state.players.length;
+    if (key === playKey) return;
+    playKey = key;
+    play.replaceChildren();
+    var who = personOf(state.current);
+    var mine = !adminOn || (me && me.num === state.current);
+
+    if (state.phase === "shoot") {
+      play.appendChild(el("p", "play-title", mine ? "¡Te toca! Elegí dónde patear" : "Patea " + who.name + ": elegí dónde"));
+      var goal = el("div", "goal-pick");
+      [["tl", "Ángulo izq."], ["c", "Al medio"], ["tr", "Ángulo der."], ["bl", "Abajo izq."], ["br", "Abajo der."]].forEach(function (z) {
+        var b = el("button", "zone zone-" + z[0]);
+        b.type = "button";
+        b.setAttribute("aria-label", z[1]);
+        b.appendChild(el("span", null, "⚽"));
+        b.addEventListener("click", function () { send("/draw/shoot", { zone: z[0], expect: state.current }); });
+        goal.appendChild(b);
+      });
+      play.appendChild(goal);
     } else {
-      waiting.appendChild(el("p", "muted", "Entran al sorteo los que confirmaron asistencia."));
-    }
-    renderAdminSelects();
-  }
-
-  /* ---------- Escenario ---------- */
-
-  function playerBlock(p, label) {
-    var b = el("div", "stage-player");
-    var frame = el("div", "stage-photo");
-    if (p.photo) { var img = document.createElement("img"); img.src = p.photo; img.alt = ""; frame.appendChild(img); }
-    else frame.appendChild(el("span", "stage-initial", p.name.charAt(0)));
-    b.appendChild(frame);
-    if (label) b.appendChild(el("small", null, label));
-    b.appendChild(el("strong", null, p.name));
-    return b;
-  }
-
-  function revealBlock(team) {
-    var r = el("div", "reveal tier-" + team.tier);
-    r.appendChild(S.crest(team, "xl"));
-    r.appendChild(el("small", null, TIER_LABEL[team.tier]));
-    r.appendChild(el("strong", null, team.name));
-    return r;
-  }
-
-  function staticEvent(ev) {
-    stage.replaceChildren();
-    if (!ev || ev.kind === "reset") {
-      stage.appendChild(el("p", "stage-idle", state.players.length ? "Sorteo en curso" : "Esperando el primer sobre…"));
-      return;
-    }
-    var team = teamOf(ev.team);
-    if (!team) return;
-    if (ev.kind === "draw") {
-      var row = el("div", "stage-row");
-      row.appendChild(playerBlock(playerOf(ev.num), "Abrió su sobre"));
-      row.appendChild(revealBlock(team));
-      stage.appendChild(row);
-    } else {
-      stage.appendChild(stealRow(ev, team));
+      play.appendChild(el("p", "play-title", mine ? "¡Gol! Elegí tu equipo" : "¡Gol de " + who.name + "! Elegí su equipo"));
+      var taken = {};
+      state.players.forEach(function (p) { taken[p.team] = true; });
+      var grid = el("div", "team-pick");
+      state.teams.filter(function (t) { return !taken[t.id]; }).forEach(function (t) {
+        var b = el("button", "pick-btn tier-" + t.tier);
+        b.type = "button";
+        b.appendChild(S.crest(t, "sm"));
+        b.appendChild(el("span", null, t.name));
+        b.addEventListener("click", function () {
+          if (window.confirm("¿Elegir " + t.name + "?")) send("/draw/pick", { team: t.id, expect: state.current });
+        });
+        grid.appendChild(b);
+      });
+      play.appendChild(grid);
     }
   }
 
-  function stealRow(ev, team) {
-    var row = el("div", "stage-row steal-row");
-    row.appendChild(playerBlock(playerOf(ev.num), "Ladrón"));
-    var mid = el("div", "steal-mid");
-    mid.appendChild(el("div", "steal-stamp", "¡Robo!"));
-    mid.appendChild(S.crest(team, "lg"));
-    mid.appendChild(el("strong", null, team.name));
-    row.appendChild(mid);
-    row.appendChild(playerBlock(playerOf(ev.victim), "Víctima"));
-    return row;
-  }
-
-  function playDraw(ev, box, done) {
-    var team = teamOf(ev.team), p = playerOf(ev.num);
-    box.replaceChildren();
-    var row = el("div", "stage-row");
-    var who = playerBlock(p, "Le toca a");
-    var env = el("div", "envelope");
-    env.appendChild(el("span", "envelope-flap"));
-    env.appendChild(el("span", "envelope-q", "?"));
-    row.appendChild(who);
-    row.appendChild(env);
-    box.appendChild(row);
-
-    var tierColor = { oro: "#D4AF37", plata: "#C9D3E0", bronce: "#b0764a", maldito: "#9B2335" }[team.tier];
-    gsap.timeline({ onComplete: done })
-      .from(who, { x: -80, opacity: 0, duration: 0.5, ease: "back.out(1.6)" })
-      .from(env, { y: 60, opacity: 0, rotation: -12, duration: 0.5, ease: "back.out(1.8)" }, "-=0.2")
-      .to(env, { rotation: 4, duration: 0.07, yoyo: true, repeat: 15, ease: "none" }, "+=0.3")
-      .to(env, { boxShadow: "0 0 70px 18px " + tierColor, duration: 0.7 }, "-=0.7")
-      .to(env, { scale: 1.25, duration: 0.2, ease: "power2.in" })
-      .to(env, { rotationY: 90, opacity: 0, duration: 0.2 })
-      .add(function () {
-        var rev = revealBlock(team);
-        env.replaceWith(rev);
-        gsap.from(rev, { scale: 0.3, rotation: -10, opacity: 0, duration: 0.6, ease: "back.out(2)" });
-        if (team.tier === "maldito") {
-          gsap.fromTo(rev, { x: 0 }, { x: 10, duration: 0.06, yoyo: true, repeat: 7, delay: 0.5, ease: "none", clearProps: "x" });
-        } else if (FX) {
-          setTimeout(function () { FX.popConfetti(rev, { particles: team.tier === "oro" ? 60 : 30, streamers: team.tier === "oro" ? 14 : 6 }); }, 250);
-        }
+  function send(path, body) {
+    if (sending) return;
+    sending = true;
+    var msg = $("admin-msg");
+    msg.textContent = "";
+    var headers = { "content-type": "application/json" };
+    if (adminOn) headers["x-admin-token"] = S.getToken();
+    else if (guestCode) headers["x-guest-code"] = guestCode;
+    Array.prototype.forEach.call(play.querySelectorAll("button"), function (b) { b.disabled = true; });
+    S.api(path, { method: "POST", headers: headers, body: JSON.stringify(body) })
+      .then(apply)
+      .catch(function (err) {
+        var text = S.errorText(err);
+        if (adminOn) { msg.textContent = text; if (err.status === 401) gate.invalid(); }
+        else window.alert(text);
+        playKey = "";
+        load();
       })
-      .to({}, { duration: 1.4 });
+      .then(function () { sending = false; });
   }
 
-  function playSteal(ev, box, done) {
-    var team = teamOf(ev.team);
-    box.replaceChildren();
-    var row = stealRow(ev, team);
-    box.appendChild(row);
-    var stamp = row.querySelector(".steal-stamp");
-    var crest = row.querySelector(".steal-mid .crest");
-    gsap.timeline({ onComplete: done })
-      .from(row.children[0], { x: -80, opacity: 0, duration: 0.4 })
-      .from(row.children[2], { x: 80, opacity: 0, duration: 0.4 }, "<")
-      .fromTo(stamp, { scale: 3, opacity: 0, rotation: -25 }, { scale: 1, opacity: 1, rotation: -8, duration: 0.45, ease: "back.out(2.4)" })
-      .fromTo(crest, { x: 160 }, { x: -160, duration: 0.8, ease: "power3.inOut" }, "+=0.3")
-      .to(crest, { x: 0, duration: 0.4, ease: "power2.out" })
-      .add(function () { if (FX) FX.popConfetti(row.children[0], { particles: 20, streamers: 4 }); })
-      .to({}, { duration: 1.2 });
-  }
+  /* ---------- Animaciones a pantalla completa ---------- */
 
-  function apply(next) {
-    var ev = next.last;
-    var isNew = ev && shownEvent !== null && ev.id !== shownEvent;
-    state = next;
-    if (shownEvent === null) {           // primera carga: sin animación
-      shownEvent = ev ? ev.id : 0;
-      staticEvent(ev);
-      renderBoard();
-      return;
-    }
-    if (!isNew) { if (!busy) renderBoard(); return; }
-    shownEvent = ev.id;
-    if (!animate || ev.kind === "reset" || !teamOf(ev.team)) { staticEvent(ev); renderBoard(); highlight(ev); return; }
-    busy = true;
-    openOverlay();
-    var finish = function () {
-      closeOverlay(function () {
-        busy = false;
-        staticEvent(ev);
-        renderBoard();
-        highlight(ev);
-      });
-    };
-    if (ev.kind === "draw") playDraw(ev, overlayStage, finish); else playSteal(ev, overlayStage, finish);
-  }
-
-  /* La animación corre en una capa a pantalla completa: se ve entera estés donde estés en la página. */
   var skipHold = null;
 
   function openOverlay() {
@@ -217,8 +223,8 @@
     gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.25 });
   }
 
-  function closeOverlay(after) {
-    // Se deja el resultado a la vista un rato (o hasta que toquen la pantalla) y después se cierra.
+  function closeOverlay(hold, after) {
+    // El resultado queda a la vista un rato (o hasta que toquen la pantalla) y después se cierra.
     var closed = false;
     var close = function () {
       if (closed) return;
@@ -232,63 +238,206 @@
       } });
     };
     skipHold = close;
-    setTimeout(close, 2200);
+    setTimeout(close, hold);
   }
 
   overlay.addEventListener("click", function () { if (skipHold) skipHold(); });
 
-  /** Marca en el tablero el equipo que acaba de salir (o los dos de un robo) y lo trae a la vista. */
-  function highlight(ev) {
-    if (!ev || ev.kind === "reset") return;
-    var teams = [ev.team];
-    if (ev.kind === "steal") {
-      var victim = state.players.find(function (p) { return p.num === ev.victim; });
-      if (victim) teams.push(victim.team);
+  function shooterHead(p, label) {
+    var h = el("div", "shot-head");
+    h.appendChild(S.avatar(p, "avatar-lg"));
+    var t = el("div", "turn-text");
+    t.appendChild(el("small", null, label));
+    t.appendChild(el("strong", null, p.name));
+    h.appendChild(t);
+    return h;
+  }
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs) {
+    var n = document.createElementNS(SVGNS, tag);
+    Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+    return n;
+  }
+
+  /** Arco, arquero y pelota en SVG (viewBox 320x210). */
+  function buildGoal() {
+    var svg = svgEl("svg", { viewBox: "0 0 320 210", "class": "goal-svg", "aria-hidden": "true" });
+    svg.appendChild(svgEl("rect", { x: 0, y: 150, width: 320, height: 60, fill: "#2f6b3a" }));
+    svg.appendChild(svgEl("rect", { x: 0, y: 150, width: 320, height: 3, fill: "rgba(255,255,255,.5)" }));
+    var net = svgEl("g", { "class": "net", stroke: "rgba(255,255,255,.28)", "stroke-width": 1 });
+    for (var x = 40; x < 290; x += 12) net.appendChild(svgEl("line", { x1: x, y1: 32, x2: x, y2: 150 }));
+    for (var y = 40; y < 150; y += 12) net.appendChild(svgEl("line", { x1: 32, y1: y, x2: 288, y2: y }));
+    svg.appendChild(net);
+    svg.appendChild(svgEl("path", { d: "M30 150 V30 H290 V150", fill: "none", stroke: "#fff", "stroke-width": 6, "stroke-linejoin": "round" }));
+
+    var keeper = svgEl("g", { "class": "keeper" });
+    keeper.appendChild(svgEl("rect", { x: 150, y: 104, width: 20, height: 30, rx: 5, fill: "#D4AF37", stroke: "#141414", "stroke-width": 2 }));
+    keeper.appendChild(svgEl("rect", { x: 132, y: 106, width: 18, height: 7, rx: 3, fill: "#D4AF37", stroke: "#141414", "stroke-width": 2 }));
+    keeper.appendChild(svgEl("rect", { x: 170, y: 106, width: 18, height: 7, rx: 3, fill: "#D4AF37", stroke: "#141414", "stroke-width": 2 }));
+    keeper.appendChild(svgEl("circle", { cx: 128, cy: 109, r: 5, fill: "#EDE3CC", stroke: "#141414", "stroke-width": 2 }));
+    keeper.appendChild(svgEl("circle", { cx: 192, cy: 109, r: 5, fill: "#EDE3CC", stroke: "#141414", "stroke-width": 2 }));
+    keeper.appendChild(svgEl("rect", { x: 151, y: 133, width: 7, height: 17, fill: "#141414" }));
+    keeper.appendChild(svgEl("rect", { x: 162, y: 133, width: 7, height: 17, fill: "#141414" }));
+    keeper.appendChild(svgEl("circle", { cx: 160, cy: 95, r: 9, fill: "#c99a6b", stroke: "#141414", "stroke-width": 2 }));
+    svg.appendChild(keeper);
+
+    var ball = svgEl("g", { "class": "ball" });
+    ball.appendChild(svgEl("circle", { cx: 0, cy: 0, r: 9, fill: "#fff", stroke: "#141414", "stroke-width": 2 }));
+    ball.appendChild(svgEl("path", { d: "M0 -4 L4 -1 L2.5 4 L-2.5 4 L-4 -1 Z", fill: "#141414" }));
+    svg.appendChild(ball);
+    return { svg: svg, keeper: keeper, ball: ball };
+  }
+
+  var TARGET = { tl: [62, 52], bl: [62, 132], c: [160, 92], tr: [258, 52], br: [258, 132] };
+  var DIVE = {
+    L: { x: -78, y: -6, rotation: -72 },
+    C: { x: 0, y: -22, rotation: 0 },
+    R: { x: 78, y: -6, rotation: 72 }
+  };
+
+  function playShot(ev, done) {
+    var p = personOf(ev.num), res = RESULT[ev.result] || RESULT.atajada;
+    overlayStage.replaceChildren();
+    var wrap = el("div", "shot");
+    wrap.appendChild(shooterHead(p, "Patea"));
+    var g = buildGoal();
+    wrap.appendChild(g.svg);
+    var banner = el("div", "shot-result " + res.cls, res.title);
+    var sub = el("p", "shot-sub", ev.result === "gol" ? "Ahora elige su equipo" : p.name + " vuelve al final de la fila");
+    wrap.appendChild(banner);
+    wrap.appendChild(sub);
+    overlayStage.appendChild(wrap);
+
+    var t = TARGET[ev.zone] || TARGET.c;
+    var left = ev.zone === "tl" || ev.zone === "bl";
+    var end = { x: t[0], y: t[1] };
+    if (ev.result === "afuera") end = { x: left ? 46 : 274, y: 6 };
+    if (ev.result === "palo") end = { x: left ? 32 : 288, y: 48 };
+
+    gsap.set(g.ball, { x: 160, y: 192, scale: 1.25, svgOrigin: "0 0" });
+    gsap.set(g.keeper, { svgOrigin: "160 150" });
+    gsap.set([banner, sub], { opacity: 0 });
+    var tl = gsap.timeline({ onComplete: done });
+    tl.from(wrap.firstChild, { y: -30, opacity: 0, duration: 0.35 })
+      .to(g.keeper, { x: 6, duration: 0.25, yoyo: true, repeat: 3, ease: "sine.inOut" })
+      .to(g.ball, { x: end.x, y: end.y, scale: 0.75, duration: 0.45, ease: "power2.in" }, "+=0.25")
+      .to(g.keeper, Object.assign({ duration: 0.38, ease: "power2.out" }, DIVE[ev.dive] || DIVE.C), "<+0.05");
+
+    if (ev.result === "gol") {
+      tl.to(g.svg.querySelector(".net"), { y: -4, duration: 0.08, yoyo: true, repeat: 3 })
+        .add(function () { if (FX) FX.popConfetti(banner, { particles: 60, streamers: 12 }); });
+    } else if (ev.result === "atajada") {
+      tl.to(g.ball, { x: end.x + (left ? 40 : ev.zone === "c" ? 0 : -40), y: 185, duration: 0.45, ease: "power2.out" });
+    } else if (ev.result === "palo") {
+      tl.to(g.svg, { x: 3, duration: 0.05, yoyo: true, repeat: 5 })
+        .to(g.ball, { x: left ? 80 : 240, y: 190, duration: 0.5, ease: "bounce.out" }, "<");
+    } else {
+      tl.to(g.ball, { x: left ? 20 : 300, y: -20, scale: 0.5, duration: 0.3 });
     }
-    var tiles = teams.map(function (id) { return board.querySelector('[data-team="' + id + '"]'); }).filter(Boolean);
-    if (!tiles.length) return;
-    var r = tiles[0].getBoundingClientRect();
-    var bar = document.getElementById("admin");
-    var bottom = window.innerHeight - (bar && !bar.hidden && bar.classList.contains("docked") ? bar.offsetHeight : 0);
-    if (r.top < 60 || r.bottom > bottom) tiles[0].scrollIntoView({ behavior: animate ? "smooth" : "auto", block: "center" });
-    tiles.forEach(function (t) {
-      t.classList.add("just-drawn");
-      if (animate) gsap.fromTo(t, { scale: 1 }, { scale: 1.06, duration: 0.25, yoyo: true, repeat: 3, ease: "power2.inOut", clearProps: "transform" });
-      setTimeout(function () { t.classList.remove("just-drawn"); }, 6000);
+    tl.fromTo(banner, { scale: 2.4, opacity: 0, rotation: -8 }, { scale: 1, opacity: 1, rotation: -4, duration: 0.4, ease: "back.out(2.2)" })
+      .to(sub, { opacity: 1, duration: 0.3 });
+  }
+
+  function revealBlock(team) {
+    var r = el("div", "reveal tier-" + team.tier);
+    r.appendChild(S.crest(team, "xl"));
+    r.appendChild(el("small", null, TIER_LABEL[team.tier]));
+    r.appendChild(el("strong", null, team.name));
+    return r;
+  }
+
+  function playPick(ev, done) {
+    var team = teamOf(ev.team), p = personOf(ev.num);
+    overlayStage.replaceChildren();
+    var row = el("div", "stage-row");
+    var who = el("div", "stage-player");
+    var frame = el("div", "stage-photo");
+    if (p.photo) { var img = document.createElement("img"); img.src = p.photo; img.alt = ""; frame.appendChild(img); }
+    else frame.appendChild(el("span", "stage-initial", p.name.charAt(0)));
+    who.appendChild(frame);
+    who.appendChild(el("small", null, "Eligió"));
+    who.appendChild(el("strong", null, p.name));
+    var rev = revealBlock(team);
+    row.appendChild(who);
+    row.appendChild(rev);
+    overlayStage.appendChild(row);
+    gsap.timeline({ onComplete: done })
+      .from(who, { x: -80, opacity: 0, duration: 0.45, ease: "back.out(1.6)" })
+      .from(rev, { scale: 0.3, rotation: -10, opacity: 0, duration: 0.6, ease: "back.out(2)" }, "-=0.1")
+      .add(function () { if (FX) FX.popConfetti(rev, { particles: 50, streamers: 10 }); });
+  }
+
+  function playStart(done) {
+    overlayStage.replaceChildren();
+    var box = el("div", "start-box");
+    box.appendChild(el("p", "shot-result gol", "¡Arranca la tanda!"));
+    var chips = el("ol", "chips line-chips");
+    state.queue.forEach(function (p, i) {
+      var chip = el("li", "chip" + (i === 0 ? " now" : ""));
+      chip.appendChild(el("span", "chip-pos", String(i + 1)));
+      chip.appendChild(S.avatar(p, "avatar-xs"));
+      chip.appendChild(document.createTextNode(p.name));
+      chips.appendChild(chip);
     });
+    box.appendChild(chips);
+    overlayStage.appendChild(box);
+    gsap.timeline({ onComplete: done })
+      .from(box.firstChild, { scale: 2, opacity: 0, duration: 0.4, ease: "back.out(2)" })
+      .from(chips.children, { y: 20, opacity: 0, duration: 0.3, stagger: 0.08 });
+  }
+
+  /** Marca en el tablero el equipo recién elegido y lo trae a la vista. */
+  function highlight(ev) {
+    if (!ev || ev.kind !== "pick") return;
+    var tile = board.querySelector('[data-team="' + ev.team + '"]');
+    if (!tile) return;
+    var r = tile.getBoundingClientRect();
+    var dock = document.body.classList.contains("has-dock") ? 200 : 0;
+    if (r.top < 60 || r.bottom > window.innerHeight - dock) tile.scrollIntoView({ behavior: animate ? "smooth" : "auto", block: "center" });
+    tile.classList.add("just-drawn");
+    if (animate) gsap.fromTo(tile, { scale: 1 }, { scale: 1.06, duration: 0.25, yoyo: true, repeat: 3, ease: "power2.inOut", clearProps: "transform" });
+    setTimeout(function () { tile.classList.remove("just-drawn"); }, 6000);
+  }
+
+  function renderAll() { renderTurn(); renderBoard(); renderPlay(); }
+
+  function apply(next) {
+    var ev = next.last;
+    var isNew = ev && shownEvent !== null && ev.id !== shownEvent;
+    state = next;
+    if (shownEvent === null || !isNew) {           // primera carga o nada nuevo: sin animación
+      if (shownEvent === null) shownEvent = ev ? ev.id : 0;
+      if (!busy) renderAll();
+      return;
+    }
+    shownEvent = ev.id;
+    if (!animate || ev.kind === "reset") { renderAll(); highlight(ev); return; }
+    busy = true;
+    renderPlay();                                  // esconde los controles mientras dura la animación
+    openOverlay();
+    var finish = function (hold) {
+      return function () {
+        closeOverlay(hold, function () { busy = false; renderAll(); highlight(ev); });
+      };
+    };
+    if (ev.kind === "shot") playShot(ev, finish(2400));
+    else if (ev.kind === "pick" && teamOf(ev.team)) playPick(ev, finish(2200));
+    else if (ev.kind === "start") playStart(finish(2600));
+    else { busy = false; overlay.hidden = true; document.body.classList.remove("overlay-open"); renderAll(); }
   }
 
   function load() {
     return S.api("/draw").then(apply).catch(function () { /* se reintenta en el próximo ciclo */ });
   }
 
-  /* ---------- Admin ---------- */
+  /* ---------- Organizador ---------- */
 
-  var adminOn = false, gate = null;
-  var msg = document.getElementById("admin-msg");
-  var thiefSel = document.getElementById("thief");
-  var victimSel = document.getElementById("victim");
-
-  function option(value, text) { var o = document.createElement("option"); o.value = value; o.textContent = text; return o; }
-
-  function renderAdminSelects() {
-    if (!adminOn || !state) return;
-    var prevT = thiefSel.value, prevV = victimSel.value;
-    thiefSel.replaceChildren(option("", "—"));
-    victimSel.replaceChildren(option("", "—"));
-    state.players.forEach(function (p) {
-      var left = p.maxSteals - p.steals;
-      if (left > 0) thiefSel.appendChild(option(p.num, p.name + " (" + left + ")"));
-      if (!p.locked) victimSel.appendChild(option(p.num, p.name + " · " + (teamOf(p.team) || {}).name));
-    });
-    thiefSel.value = prevT; victimSel.value = prevV;
-  }
-
-  function run(btn, path, body) {
+  function adminRun(btn, path) {
     btn.disabled = true;
-    msg.textContent = "";
-    S.adminPost(path, body).then(apply).catch(function (err) {
-      msg.textContent = S.errorText(err);
+    $("admin-msg").textContent = "";
+    S.adminPost(path).then(apply).catch(function (err) {
+      $("admin-msg").textContent = S.errorText(err);
       if (err.status === 401) gate.invalid();
     }).then(function () { btn.disabled = false; });
   }
@@ -296,25 +445,31 @@
   function initAdmin() {
     gate = S.adminGate(function (on) {
       adminOn = on;
-      // Con el organizador adentro, los controles quedan fijos abajo de la pantalla.
-      document.getElementById("admin").classList.toggle("docked", on);
-      document.body.classList.toggle("has-dock", on);
-      renderAdminSelects();
+      // Con el organizador adentro, el panel queda fijo abajo de la pantalla.
+      $("admin").classList.toggle("docked", on);
+      playKey = "";
+      if (state) renderPlay();
     });
-    var next = document.getElementById("btn-next");
-    next.addEventListener("click", function () { if (!busy) run(next, "/admin/draw/next"); });
-    var steal = document.getElementById("btn-steal");
-    steal.addEventListener("click", function () {
-      if (!thiefSel.value || !victimSel.value) { msg.textContent = "Elegí ladrón y víctima."; return; }
-      run(steal, "/admin/draw/steal", { thief: Number(thiefSel.value), victim: Number(victimSel.value) });
+    $("btn-start").addEventListener("click", function () {
+      if (window.confirm("¿Arrancar el sorteo con los que confirmaron? Se sortea el orden de la fila.")) adminRun($("btn-start"), "/draw/start");
     });
-    var reset = document.getElementById("btn-reset");
-    reset.addEventListener("click", function () {
-      if (window.confirm("¿Borrar todo el sorteo y volver a empezar?")) run(reset, "/admin/draw/reset");
+    $("btn-reset").addEventListener("click", function () {
+      if (window.confirm("¿Borrar todo el sorteo y volver a empezar?")) adminRun($("btn-reset"), "/admin/draw/reset");
     });
   }
 
+  function initGuest() {
+    if (!guestCode) return;
+    S.api("/me?c=" + encodeURIComponent(guestCode)).then(function (g) {
+      if (g.status !== "yes") return;
+      me = g;
+      playKey = "";
+      if (state && !busy) renderAll();
+    }).catch(function () { /* código inválido: mira como cualquiera */ });
+  }
+
   initAdmin();
+  initGuest();
   load();
   setInterval(function () { if (!document.hidden && !busy) load(); }, S.pollMs);
 })();
