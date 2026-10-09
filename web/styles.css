@@ -272,17 +272,21 @@ a.brand { text-decoration: none; }
 
 .overlay {
   position: fixed; inset: 0; z-index: 100;
-  display: grid; place-items: center; padding: 24px 16px;
-  background: radial-gradient(circle at 50% 40%, #1E3A5F, #0f1f33 60%, #0a0a0a);
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(10, 15, 25, .72); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
   color: var(--paper); cursor: pointer; perspective: 1200px;
 }
 .overlay[hidden] { display: none; }
-.overlay-inner { width: 100%; max-width: 1100px; }
-.overlay .stage-photo { width: clamp(150px, 24vw, 280px); }
-.overlay .stage-player strong, .overlay .reveal strong { font-size: clamp(40px, 7vw, 84px); }
-.overlay .stage-player small, .overlay .reveal small { font-size: clamp(22px, 3vw, 32px); }
-.overlay .crest-xl { width: clamp(170px, 24vw, 260px); height: clamp(170px, 24vw, 260px); padding: clamp(14px, 2vw, 22px); }
-.overlay .envelope { width: clamp(200px, 30vw, 340px); }
+/* La tarjeta centrada, igual que el escenario del sobre. */
+.overlay-inner {
+  width: min(980px, 100%); max-height: calc(100vh - 32px); overflow: hidden;
+  background: var(--ink); border: 5px solid var(--gold); box-shadow: 12px 12px 0 var(--navy), 0 30px 80px rgba(0,0,0,.6);
+  padding: clamp(18px, 3vw, 36px);
+}
+.overlay .stage-photo { width: clamp(120px, 18vw, 210px); }
+.overlay .stage-player strong, .overlay .reveal strong { font-size: clamp(32px, 5vw, 56px); }
+.overlay .stage-player small, .overlay .reveal small { font-size: clamp(18px, 2.4vw, 24px); }
+.overlay .crest-xl { width: clamp(150px, 20vw, 220px); height: clamp(150px, 20vw, 220px); padding: clamp(12px, 1.8vw, 20px); }
 body.overlay-open { overflow: hidden; }
 
 .team-tile { transition: box-shadow .3s ease, background-color .3s ease; }
@@ -374,13 +378,19 @@ body.has-dock { padding-bottom: 96px; }
 .pick-btn.tier-maldito { border-left-color: var(--red); }
 
 /* Animación del penal */
-.shot { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.shot-head { display: flex; align-items: center; gap: 16px; }
-.goal-svg { width: min(720px, 100%); max-height: 56vh; }
-.shot-result { margin: 0; font-family: var(--f-display); font-size: clamp(48px, 9vw, 110px); line-height: 1; text-transform: uppercase; text-align: center; }
-.shot-result.gol { color: var(--gold); text-shadow: 5px 5px 0 var(--ink); }
-.shot-result.miss { color: #e06b7d; text-shadow: 5px 5px 0 var(--ink); }
-.shot-sub { margin: 0; font-family: var(--f-label); font-size: clamp(22px, 3vw, 32px); letter-spacing: 2px; text-align: center; }
+.shot { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.shot-row { flex-wrap: nowrap; gap: clamp(16px, 4vw, 48px); }
+.shot-goal { flex: 1 1 auto; min-width: 0; max-width: 560px; }
+.goal-svg { display: block; width: 100%; height: auto; max-height: 46vh; }
+.shot-result { margin: 0; font-family: var(--f-display); font-size: clamp(44px, 8vw, 92px); line-height: 1; text-transform: uppercase; text-align: center; }
+.shot-result.gol { color: var(--gold); text-shadow: 5px 5px 0 var(--navy); }
+.shot-result.miss { color: #e06b7d; text-shadow: 5px 5px 0 var(--navy); }
+.shot-sub { margin: 0; font-family: var(--f-label); font-size: clamp(20px, 2.6vw, 28px); letter-spacing: 2px; text-align: center; }
+@media (max-width: 640px) {
+  .shot-row { flex-direction: column; gap: 10px; }
+  .shot-row .stage-photo { width: 110px; }
+  .shot-goal { width: 100%; }
+}
 .start-box { display: flex; flex-direction: column; align-items: center; gap: 24px; }
 
 .board-wrap { padding: 0 16px 64px; }

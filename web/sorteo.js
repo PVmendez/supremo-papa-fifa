@@ -213,7 +213,7 @@
       .then(function () { sending = false; });
   }
 
-  /* ---------- Animaciones a pantalla completa ---------- */
+  /* ---------- Animaciones: una tarjeta centrada encima de todo ---------- */
 
   var skipHold = null;
 
@@ -221,6 +221,7 @@
     overlay.hidden = false;
     document.body.classList.add("overlay-open");
     gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.25 });
+    gsap.fromTo(overlayStage, { scale: 0.85, y: 30, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.4, ease: "back.out(1.6)" });
   }
 
   function closeOverlay(hold, after) {
@@ -230,7 +231,8 @@
       if (closed) return;
       closed = true;
       skipHold = null;
-      gsap.to(overlay, { opacity: 0, duration: 0.35, onComplete: function () {
+      gsap.to(overlayStage, { scale: 0.9, opacity: 0, duration: 0.3, ease: "power2.in" });
+      gsap.to(overlay, { opacity: 0, duration: 0.35, delay: 0.05, onComplete: function () {
         overlay.hidden = true;
         overlayStage.replaceChildren();
         document.body.classList.remove("overlay-open");
@@ -243,14 +245,16 @@
 
   overlay.addEventListener("click", function () { if (skipHold) skipHold(); });
 
-  function shooterHead(p, label) {
-    var h = el("div", "shot-head");
-    h.appendChild(S.avatar(p, "avatar-lg"));
-    var t = el("div", "turn-text");
-    t.appendChild(el("small", null, label));
-    t.appendChild(el("strong", null, p.name));
-    h.appendChild(t);
-    return h;
+  /** Foto grande del jugador con su nombre, como la del sobre. */
+  function playerBlock(p, label) {
+    var who = el("div", "stage-player");
+    var frame = el("div", "stage-photo");
+    if (p.photo) { var img = document.createElement("img"); img.src = p.photo; img.alt = ""; frame.appendChild(img); }
+    else frame.appendChild(el("span", "stage-initial", p.name.charAt(0)));
+    who.appendChild(frame);
+    who.appendChild(el("small", null, label));
+    who.appendChild(el("strong", null, p.name));
+    return who;
   }
 
   var SVGNS = "http://www.w3.org/2000/svg";
@@ -300,9 +304,14 @@
     var p = personOf(ev.num), res = RESULT[ev.result] || RESULT.atajada;
     overlayStage.replaceChildren();
     var wrap = el("div", "shot");
-    wrap.appendChild(shooterHead(p, "Patea"));
+    var who = playerBlock(p, "Patea");
     var g = buildGoal();
-    wrap.appendChild(g.svg);
+    var goalBox = el("div", "shot-goal");
+    goalBox.appendChild(g.svg);
+    var row = el("div", "stage-row shot-row");
+    row.appendChild(who);
+    row.appendChild(goalBox);
+    wrap.appendChild(row);
     var banner = el("div", "shot-result " + res.cls, res.title);
     var sub = el("p", "shot-sub", ev.result === "gol" ? "Ahora elige su equipo" : p.name + " vuelve al final de la fila");
     wrap.appendChild(banner);
@@ -319,7 +328,8 @@
     gsap.set(g.keeper, { svgOrigin: "160 150" });
     gsap.set([banner, sub], { opacity: 0 });
     var tl = gsap.timeline({ onComplete: done });
-    tl.from(wrap.firstChild, { y: -30, opacity: 0, duration: 0.35 })
+    tl.from(who, { x: -80, opacity: 0, duration: 0.5, ease: "back.out(1.6)" }, 0.2)
+      .from(goalBox, { y: 60, opacity: 0, rotation: -6, duration: 0.5, ease: "back.out(1.8)" }, "-=0.25")
       .to(g.keeper, { x: 6, duration: 0.25, yoyo: true, repeat: 3, ease: "sine.inOut" })
       .to(g.ball, { x: end.x, y: end.y, scale: 0.75, duration: 0.45, ease: "power2.in" }, "+=0.25")
       .to(g.keeper, Object.assign({ duration: 0.38, ease: "power2.out" }, DIVE[ev.dive] || DIVE.C), "<+0.05");
@@ -351,19 +361,13 @@
     var team = teamOf(ev.team), p = personOf(ev.num);
     overlayStage.replaceChildren();
     var row = el("div", "stage-row");
-    var who = el("div", "stage-player");
-    var frame = el("div", "stage-photo");
-    if (p.photo) { var img = document.createElement("img"); img.src = p.photo; img.alt = ""; frame.appendChild(img); }
-    else frame.appendChild(el("span", "stage-initial", p.name.charAt(0)));
-    who.appendChild(frame);
-    who.appendChild(el("small", null, "Eligió"));
-    who.appendChild(el("strong", null, p.name));
+    var who = playerBlock(p, "Eligió");
     var rev = revealBlock(team);
     row.appendChild(who);
     row.appendChild(rev);
     overlayStage.appendChild(row);
     gsap.timeline({ onComplete: done })
-      .from(who, { x: -80, opacity: 0, duration: 0.45, ease: "back.out(1.6)" })
+      .from(who, { x: -80, opacity: 0, duration: 0.45, ease: "back.out(1.6)" }, 0.2)
       .from(rev, { scale: 0.3, rotation: -10, opacity: 0, duration: 0.6, ease: "back.out(2)" }, "-=0.1")
       .add(function () { if (FX) FX.popConfetti(rev, { particles: 50, streamers: 10 }); });
   }
