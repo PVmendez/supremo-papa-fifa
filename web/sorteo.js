@@ -11,7 +11,6 @@
 
   var board = $("board"), waitingBox = $("waiting"), turnBox = $("turn"), lineBox = $("line");
   var overlay = $("overlay"), overlayStage = $("overlay-stage");
-  var play = $("play"), playerDock = $("player-dock"), adminSlot = $("admin-play-slot");
 
   var state = null;
   var shownEvent = null;   // id del último movimiento ya mostrado
@@ -141,55 +140,108 @@
     return adminOn || !!(me && me.num === state.current);
   }
 
-  var playKey = "";
+  /*
+   * Al que le toca (o al organizador) se le abre la misma tarjeta centrada de las animaciones:
+   * su foto y el arco grande, y toca directo el lugar donde patea. Con gol, ahí mismo elige equipo.
+   */
+  var playKey = "", hiddenKey = null;
 
   function renderPlay() {
     $("btn-start").hidden = !adminOn || !state || state.phase !== "idle";
-    var show = canControl() && !busy;
-    // Los controles van en el panel del organizador o, si patea el propio jugador, en su barra de abajo.
-    var host = adminOn ? adminSlot : playerDock;
-    if (play.parentNode !== host) host.appendChild(play);
-    playerDock.hidden = adminOn || !show;
-    document.body.classList.toggle("has-dock", adminOn || show);
-    play.hidden = !show;
-    if (!show) { playKey = ""; return; }
+    document.body.classList.toggle("has-dock", adminOn);
+    var reopen = $("reopen");
+    if (!canControl() || busy) { playKey = ""; reopen.hidden = true; closeControl(); return; }
 
     var key = state.phase + ":" + state.current + ":" + state.players.length;
-    if (key === playKey) return;
-    playKey = key;
-    play.replaceChildren();
     var who = personOf(state.current);
-    var mine = !adminOn || (me && me.num === state.current);
+    if (hiddenKey === key) {
+      // El organizador la escondió para mirar el tablero: queda un botón para volver a abrirla.
+      closeControl();
+      reopen.hidden = false;
+      reopen.textContent = (state.phase === "shoot" ? "⚽ Patea " : "🏆 Elige ") + who.name;
+      return;
+    }
+    hiddenKey = null;
+    reopen.hidden = true;
+    if (key === playKey && overlay.classList.contains("control") && !overlay.hidden) return;
+    playKey = key;
+    buildControl(who);
+  }
 
+  function buildControl(who) {
+    var wasHidden = overlay.hidden;
+    var mine = !adminOn || (me && me.num === state.current);
+    gsap && gsap.killTweensOf(overlayStage.querySelectorAll(".keeper"));
+    overlayStage.replaceChildren();
+    overlay.classList.add("control");
+    overlay.hidden = false;
+    document.body.classList.add("overlay-open");
+
+    var wrap = el("div", "shot control");
+    var row = el("div", "stage-row shot-row");
     if (state.phase === "shoot") {
-      play.appendChild(el("p", "play-title", mine ? "¡Te toca! Elegí dónde patear" : "Patea " + who.name + ": elegí dónde"));
-      var goal = el("div", "goal-pick");
-      [["tl", "Ángulo izq."], ["c", "Al medio"], ["tr", "Ángulo der."], ["bl", "Abajo izq."], ["br", "Abajo der."]].forEach(function (z) {
+      row.appendChild(playerBlock(who, mine ? "¡Te toca!" : "Patea"));
+      var g = buildGoal();
+      var goalBox = el("div", "shot-goal");
+      goalBox.appendChild(g.svg);
+      var layer = el("div", "zone-layer");
+      [["tl", "Ángulo izquierdo"], ["c", "Al medio"], ["tr", "Ángulo derecho"], ["bl", "Abajo a la izquierda"], ["br", "Abajo a la derecha"]].forEach(function (z) {
         var b = el("button", "zone zone-" + z[0]);
         b.type = "button";
-        b.setAttribute("aria-label", z[1]);
+        b.title = z[1];
+        b.setAttribute("aria-label", "Patear " + z[1].toLowerCase());
         b.appendChild(el("span", null, "⚽"));
         b.addEventListener("click", function () { send("/draw/shoot", { zone: z[0], expect: state.current }); });
-        goal.appendChild(b);
+        layer.appendChild(b);
       });
-      play.appendChild(goal);
+      goalBox.appendChild(layer);
+      row.appendChild(goalBox);
+      wrap.appendChild(row);
+      wrap.appendChild(el("p", "shot-sub", "Tocá en el arco dónde querés patear"));
+      if (animate) {
+        gsap.set(g.ball, { x: 160, y: 192, scale: 1.25, svgOrigin: "0 0" });
+        gsap.to(g.keeper, { x: 8, duration: 0.6, yoyo: true, repeat: -1, ease: "sine.inOut" });
+      } else {
+        g.ball.setAttribute("transform", "translate(160 192) scale(1.25)");
+      }
     } else {
-      play.appendChild(el("p", "play-title", mine ? "¡Gol! Elegí tu equipo" : "¡Gol de " + who.name + "! Elegí su equipo"));
+      row.appendChild(playerBlock(who, mine ? "¡Gol! Elegí tu equipo" : "¡Gol! Elige"));
       var taken = {};
       state.players.forEach(function (p) { taken[p.team] = true; });
       var grid = el("div", "team-pick");
       state.teams.filter(function (t) { return !taken[t.id]; }).forEach(function (t) {
         var b = el("button", "pick-btn tier-" + t.tier);
         b.type = "button";
-        b.appendChild(S.crest(t, "sm"));
+        b.appendChild(S.crest(t));
         b.appendChild(el("span", null, t.name));
         b.addEventListener("click", function () {
           if (window.confirm("¿Elegir " + t.name + "?")) send("/draw/pick", { team: t.id, expect: state.current });
         });
         grid.appendChild(b);
       });
-      play.appendChild(grid);
+      row.appendChild(grid);
+      wrap.appendChild(row);
     }
+    if (adminOn) {
+      var hide = el("button", "btn-link control-hide", "Esconder para ver el tablero");
+      hide.type = "button";
+      hide.addEventListener("click", function () { hiddenKey = playKey; renderPlay(); });
+      wrap.appendChild(hide);
+    }
+    overlayStage.appendChild(wrap);
+    if (animate && wasHidden) {
+      gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.25 });
+      gsap.fromTo(overlayStage, { scale: 0.85, y: 30, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.4, ease: "back.out(1.6)" });
+    }
+  }
+
+  function closeControl() {
+    if (!overlay.classList.contains("control")) return;
+    if (gsap) gsap.killTweensOf(overlayStage.querySelectorAll(".keeper"));
+    overlay.classList.remove("control");
+    overlay.hidden = true;
+    overlayStage.replaceChildren();
+    document.body.classList.remove("overlay-open");
   }
 
   function send(path, body) {
@@ -200,7 +252,7 @@
     var headers = { "content-type": "application/json" };
     if (adminOn) headers["x-admin-token"] = S.getToken();
     else if (guestCode) headers["x-guest-code"] = guestCode;
-    Array.prototype.forEach.call(play.querySelectorAll("button"), function (b) { b.disabled = true; });
+    Array.prototype.forEach.call(overlayStage.querySelectorAll("button"), function (b) { b.disabled = true; });
     S.api(path, { method: "POST", headers: headers, body: JSON.stringify(body) })
       .then(apply)
       .catch(function (err) {
@@ -208,6 +260,7 @@
         if (adminOn) { msg.textContent = text; if (err.status === 401) gate.invalid(); }
         else window.alert(text);
         playKey = "";
+        if (overlay.classList.contains("control")) Array.prototype.forEach.call(overlayStage.querySelectorAll("button"), function (b) { b.disabled = false; });
         load();
       })
       .then(function () { sending = false; });
@@ -418,8 +471,15 @@
     shownEvent = ev.id;
     if (!animate || ev.kind === "reset") { renderAll(); highlight(ev); return; }
     busy = true;
-    renderPlay();                                  // esconde los controles mientras dura la animación
-    openOverlay();
+    $("reopen").hidden = true;
+    var fromControl = overlay.classList.contains("control") && !overlay.hidden;
+    if (fromControl) {                             // la tarjeta ya está abierta: la animación sigue ahí
+      if (gsap) gsap.killTweensOf(overlayStage.querySelectorAll(".keeper"));
+      overlay.classList.remove("control");
+    } else {
+      closeControl();
+      openOverlay();
+    }
     var finish = function (hold) {
       return function () {
         closeOverlay(hold, function () { busy = false; renderAll(); highlight(ev); });
@@ -452,7 +512,8 @@
       // Con el organizador adentro, el panel queda fijo abajo de la pantalla.
       $("admin").classList.toggle("docked", on);
       playKey = "";
-      if (state) renderPlay();
+      hiddenKey = null;
+      if (state && !busy) renderPlay();
     });
     $("btn-start").addEventListener("click", function () {
       if (window.confirm("¿Arrancar el sorteo con los que confirmaron? Se sortea el orden de la fila.")) adminRun($("btn-start"), "/draw/start");
@@ -461,6 +522,8 @@
       if (window.confirm("¿Borrar todo el sorteo y volver a empezar?")) adminRun($("btn-reset"), "/admin/draw/reset");
     });
   }
+
+  $("reopen").addEventListener("click", function () { hiddenKey = null; playKey = ""; renderPlay(); });
 
   function initGuest() {
     if (!guestCode) return;
