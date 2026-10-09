@@ -25,7 +25,13 @@
 
   /* ---------- Tablero ---------- */
 
+  var boardKey = "";
+
   function renderBoard() {
+    // Solo se repinta si algo cambió: rehacerlo en cada consulta hace parpadear los escudos.
+    var key = JSON.stringify([state.players, state.waiting]);
+    if (key === boardKey) return;
+    boardKey = key;
     var owner = {};
     state.players.forEach(function (p) { owner[p.team] = p; });
     var frag = document.createDocumentFragment();

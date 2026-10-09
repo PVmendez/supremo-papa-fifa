@@ -46,15 +46,20 @@
     return n;
   }
 
-  /** Escudo genérico: los dos colores del club y su sigla. */
+  /** Escudo del club (con la sigla en sus colores como respaldo si la imagen no carga). */
   function crest(team, size) {
-    var c = el("span", "crest" + (size ? " crest-" + size : ""), team ? team.id.toUpperCase() : "?");
-    if (team) {
-      c.style.setProperty("--c1", team.colors[0]);
-      c.style.setProperty("--c2", team.colors[1]);
-      c.title = team.name;
-    }
+    var c = el("span", "crest" + (size ? " crest-" + size : ""));
     c.setAttribute("aria-hidden", "true");
+    if (!team) { c.textContent = "?"; return c; }
+    c.title = team.name;
+    c.style.setProperty("--c1", team.colors[0]);
+    c.style.setProperty("--c2", team.colors[1]);
+    var fallback = function () { c.classList.add("crest-text"); c.textContent = team.id.toUpperCase(); };
+    if (!team.logo) { fallback(); return c; }
+    var img = document.createElement("img");
+    img.src = team.logo; img.alt = "";
+    img.onerror = fallback;
+    c.appendChild(img);
     return c;
   }
 

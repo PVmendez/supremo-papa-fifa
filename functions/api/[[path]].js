@@ -26,6 +26,7 @@ import {
 const VALID = new Set(["yes", "no"]);
 
 // Los 16 sobres, en 4 bombos. Para cambiar un equipo basta con editar esta lista (el id no puede repetirse).
+// El escudo de cada uno está en web/img/escudos/<id>.png.
 const TIERS = [
   { id: "oro", name: "Oro" },
   { id: "plata", name: "Plata" },
@@ -33,22 +34,22 @@ const TIERS = [
   { id: "maldito", name: "Maldito" },
 ];
 const TEAMS = [
-  { id: "rma", name: "Real Madrid",        tier: "oro",     colors: ["#FFFFFF", "#FEBE10"] },
-  { id: "mci", name: "Manchester City",    tier: "oro",     colors: ["#6CABDD", "#1C2C5B"] },
-  { id: "bay", name: "Bayern Múnich",      tier: "oro",     colors: ["#DC052D", "#FFFFFF"] },
-  { id: "psg", name: "PSG",                tier: "oro",     colors: ["#004170", "#DA291C"] },
-  { id: "bar", name: "Barcelona",          tier: "plata",   colors: ["#A50044", "#004D98"] },
-  { id: "liv", name: "Liverpool",          tier: "plata",   colors: ["#C8102E", "#F6EB61"] },
-  { id: "ars", name: "Arsenal",            tier: "plata",   colors: ["#EF0107", "#FFFFFF"] },
-  { id: "int", name: "Inter",              tier: "plata",   colors: ["#0068A8", "#141414"] },
-  { id: "atm", name: "Atlético de Madrid", tier: "bronce",  colors: ["#CB3524", "#FFFFFF"] },
-  { id: "juv", name: "Juventus",           tier: "bronce",  colors: ["#141414", "#FFFFFF"] },
-  { id: "bvb", name: "Borussia Dortmund",  tier: "bronce",  colors: ["#FDE100", "#141414"] },
-  { id: "nap", name: "Napoli",             tier: "bronce",  colors: ["#12A0D7", "#FFFFFF"] },
-  { id: "cad", name: "Cádiz",              tier: "maldito", colors: ["#FFE500", "#0045A7"] },
-  { id: "lut", name: "Luton Town",         tier: "maldito", colors: ["#F78F1E", "#002D62"] },
-  { id: "sal", name: "Salernitana",        tier: "maldito", colors: ["#8A1E2C", "#FFFFFF"] },
-  { id: "ips", name: "Ipswich Town",       tier: "maldito", colors: ["#0044A9", "#FFFFFF"] },
+  { id: "rma", name: "Real Madrid",        tier: "oro",     colors: ["#FFFFFF", "#FEBE10"], logo: "img/escudos/rma.png" },
+  { id: "mci", name: "Manchester City",    tier: "oro",     colors: ["#6CABDD", "#1C2C5B"], logo: "img/escudos/mci.png" },
+  { id: "bay", name: "Bayern Múnich",      tier: "oro",     colors: ["#DC052D", "#FFFFFF"], logo: "img/escudos/bay.png" },
+  { id: "psg", name: "PSG",                tier: "oro",     colors: ["#004170", "#DA291C"], logo: "img/escudos/psg.png" },
+  { id: "bar", name: "Barcelona",          tier: "plata",   colors: ["#A50044", "#004D98"], logo: "img/escudos/bar.png" },
+  { id: "liv", name: "Liverpool",          tier: "plata",   colors: ["#C8102E", "#F6EB61"], logo: "img/escudos/liv.png" },
+  { id: "ars", name: "Arsenal",            tier: "plata",   colors: ["#EF0107", "#FFFFFF"], logo: "img/escudos/ars.png" },
+  { id: "int", name: "Inter",              tier: "plata",   colors: ["#0068A8", "#141414"], logo: "img/escudos/int.png" },
+  { id: "atm", name: "Atlético de Madrid", tier: "bronce",  colors: ["#CB3524", "#FFFFFF"], logo: "img/escudos/atm.png" },
+  { id: "juv", name: "Juventus",           tier: "bronce",  colors: ["#141414", "#FFFFFF"], logo: "img/escudos/juv.png" },
+  { id: "bvb", name: "Borussia Dortmund",  tier: "bronce",  colors: ["#FDE100", "#141414"], logo: "img/escudos/bvb.png" },
+  { id: "nap", name: "Napoli",             tier: "bronce",  colors: ["#12A0D7", "#FFFFFF"], logo: "img/escudos/nap.png" },
+  { id: "cad", name: "Cádiz",              tier: "maldito", colors: ["#FFE500", "#0045A7"], logo: "img/escudos/cad.png" },
+  { id: "lut", name: "Luton Town",         tier: "maldito", colors: ["#F78F1E", "#002D62"], logo: "img/escudos/lut.png" },
+  { id: "sal", name: "Salernitana",        tier: "maldito", colors: ["#8A1E2C", "#FFFFFF"], logo: "img/escudos/sal.png" },
+  { id: "ips", name: "Ipswich Town",       tier: "maldito", colors: ["#0044A9", "#FFFFFF"], logo: "img/escudos/ips.png" },
 ];
 const TEAM_IDS = new Set(TEAMS.map((t) => t.id));
 
