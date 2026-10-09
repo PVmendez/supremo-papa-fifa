@@ -213,7 +213,6 @@ async function canPlay(request, env, db, num) {
 
 /* ---------- Torneo ---------- */
 
-const CONSOLES = 2;
 const teamById = new Map(TEAMS.map((t) => [t.id, t]));
 
 async function tournamentData(db) {
@@ -260,7 +259,7 @@ async function startTournament(db) {
   const players = people.filter((p) => teamById.has(p.team)).map((p) => ({ num: p.num, tier: teamById.get(p.team).tier }));
   const built = buildGroups(players, randomIndex);
   if (!built) return { error: "invalid_player_count" };
-  const fixture = groupMatches(built, CONSOLES);
+  const fixture = groupMatches(built, formatFor(players.length));
   const now = new Date().toISOString();
   await db.batch([
     db.prepare("DELETE FROM matches"),
@@ -288,7 +287,7 @@ async function advanceKnockout(db) {
       ord++;
       stmts.push(db
         .prepare("INSERT INTO matches (stage, slot, ord, console, home, away, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)")
-        .bind(stages[0], slot, ord, (slot % CONSOLES) + 1, home, away, now));
+        .bind(stages[0], slot, ord, 1, home, away, now));
     });
     await db.batch(stmts);
     return advanceKnockout(db);
@@ -304,7 +303,7 @@ async function advanceKnockout(db) {
         ord++;
         stmts.push(db
           .prepare("INSERT INTO matches (stage, slot, ord, console, home, away, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)")
-          .bind(stages[s], slot, ord, stages[s] === "final" ? 1 : (slot % CONSOLES) + 1, home, away, now));
+          .bind(stages[s], slot, ord, 1, home, away, now));
       } else if (cur.home !== home || cur.away !== away) {
         // Cambió un resultado anterior: el cruce se rehace y se borra lo que se había cargado.
         stmts.push(db
@@ -329,8 +328,14 @@ async function saveResult(db, body) {
   const clear = body.hg == null && body.ag == null;
   const goal = (v) => Number.isInteger(v) && v >= 0 && v <= 99;
   if (!clear && (!goal(body.hg) || !goal(body.ag))) return { error: "invalid_score" };
+  // En la llave, y en los cruces directos (13 a 16 jugadores), un empate se define por penales.
+  let decisive = m.stage !== "group";
+  if (!decisive) {
+    const total = await db.prepare("SELECT COUNT(*) AS n FROM tgroups").first();
+    decisive = !!formatFor(total?.n || 0)?.direct;
+  }
   let pen = null;
-  if (!clear && m.stage !== "group" && body.hg === body.ag) {
+  if (!clear && decisive && body.hg === body.ag) {
     pen = Number(body.pen_winner);
     if (pen !== m.home && pen !== m.away) return { error: "pen_winner_required" };
   }

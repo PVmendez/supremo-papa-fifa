@@ -51,16 +51,19 @@ Los códigos nunca llegan al front público: solo se resuelven en la Function.
 
 **`/sorteo` · La tanda de penales.** Entran los que confirmaron. El organizador toca "Empezar sorteo" y se sortea el orden de la fila. Patea el primero: elige uno de los 5 lugares del arco y el arquero se tira al azar (la lógica está en `lib/penalty.js`; cualquier lugar es gol 2 de cada 3 veces). Con gol elige el equipo que quiera de los que quedan; si se la atajan, pega en el palo o se va afuera, pasa al final de la fila. Cada penal y cada elección se anima a pantalla completa en todas las pantallas. Patea el organizador desde su panel o el propio jugador desde su celular, si abrió `/sorteo` con su link (`/sorteo?c=CODIGO`, o el botón "Ir al sorteo" de su invitación). Los 16 equipos están en `TEAMS`, en `functions/api/[[path]].js`.
 
-**`/torneo`.** Con el sorteo terminado, el organizador toca "Armar grupos". El formato depende de cuántos jugadores tengan equipo:
+**`/torneo`.** Pensado para una sola consola y unas 3 horas: ningún formato pasa de 15 partidos (~10 minutos cada uno con tiempos de 4 minutos). Con el sorteo terminado, el organizador toca "Armar grupos" y el formato sale de cuántos jugadores tienen equipo (`lib/tournament.js`):
 
-| Jugadores | Grupos | Pasan |
-|-----------|--------|-------|
-| 4-5 | 1 | los 4 primeros a semis |
-| 6-8 | 2 | 2 por grupo a semis |
-| 9-11 | 3 | 2 por grupo + 2 mejores terceros a cuartos |
-| 12-16 | 4 | 2 por grupo a cuartos |
+| Jugadores | Formato | Partidos |
+|-----------|---------|----------|
+| 4-5 | 1 grupo todos contra todos; final entre el 1º y el 2º | 7 / 11 |
+| 6 | 2 grupos de 3; los 2 primeros a semis | 9 |
+| 7-8 | 2 grupos (4+3 / 4+4); los 2 primeros a semis | 12 / 15 |
+| 9-10 | 3 grupos; los ganadores y el mejor 2º a semis | 12 / 15 |
+| 11 | 4 grupos (3+3+3+2, el de 2 juega ida y vuelta); los ganadores a semis | 14 |
+| 12 | 4 grupos de 3; los ganadores a semis | 15 |
+| 13-16 | Eliminación directa; los mejores bombos pasan directo a cuartos | 12 a 15 |
 
-Los grupos se reparten con un equipo de cada bombo. Los partidos se asignan a la consola 1 o 2. Cuando terminan los grupos se arma la llave sola, y cada ronda se completa al cargar los ganadores. Si hay empate en la llave, se elige quién ganó por penales.
+Los grupos se reparten con un equipo de cada bombo y los partidos se intercalan para que nadie juegue dos seguidos. "Ahora se juega" muestra el partido actual y los dos que siguen. Cuando terminan los grupos se arma la llave sola. En los partidos a todo o nada, si hay empate se elige quién ganó por penales.
 
 Para manejarlo, en `/sorteo` o `/torneo` tocá "🔑 Soy el organizador" e ingresá el código del organizador (el `ADMIN_TOKEN`). Se valida en el momento y queda guardado en ese dispositivo hasta tocar "Salir". Así cualquiera puede manejar el sorteo desde su celular si le pasás el código.
 

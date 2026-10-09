@@ -447,7 +447,8 @@ button.match:hover { box-shadow: 4px 4px 0 var(--gold); }
 .match:not(.played) .score { font-family: var(--f-label); font-size: 22px; color: var(--ink-soft); }
 .match.home-won .side.home b, .match.away-won .side.away b { color: var(--red); }
 
-.next { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; }
+.next { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px; }
+.match.bye { opacity: .85; }
 .next-match { display: flex; flex-direction: column; gap: 6px; }
 .next-label { font-family: var(--f-label); font-size: 20px; letter-spacing: 2px; color: var(--mist); }
 .next-match.now .next-label { color: var(--gold); }

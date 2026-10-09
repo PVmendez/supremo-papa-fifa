@@ -15,14 +15,29 @@
     return (state.players || []).find(function (p) { return p.num === num; }) || null;
   }
 
+  function duration(min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    return h ? h + " h" + (m ? " " + m : "") : m + " min";
+  }
+
+  /** El formato en una frase, con la cuenta de partidos para una sola consola. */
   function describe(fmt, n) {
     if (!fmt) return "Hacen falta al menos 4 jugadores con equipo para armar el torneo.";
-    var groups = fmt.groups === 1 ? "un grupo" : fmt.groups + " grupos";
-    var pass = fmt.groups === 1 ? "los 4 primeros"
-      : "los 2 primeros de cada grupo" + (fmt.bestThirds ? " y los " + fmt.bestThirds + " mejores terceros" : "");
-    var ko = fmt.knockout === 8 ? "cuartos de final" : "semifinales";
-    return (n ? n + " jugadores: " : "") + groups + " todos contra todos; " + pass + " pasan a " + ko +
-      ". En la llave, si hay empate, se define por penales.";
+    var text;
+    if (fmt.direct) {
+      var byes = fmt.sizes.filter(function (x) { return x === 1; }).length;
+      text = "eliminación directa a un partido" + (byes ? "; los " + byes + " mejores bombos pasan directo a cuartos" : "");
+    } else {
+      var groups = fmt.groups === 1 ? "un grupo todos contra todos" : fmt.groups + " grupos todos contra todos" +
+        (fmt.twoLegs ? " (el de 2 juega ida y vuelta)" : "");
+      var pass = fmt.groups === 1 ? "el 1º y el 2º juegan la final"
+        : (fmt.perGroup === 2 ? "los 2 primeros de cada grupo" : "los ganadores de cada grupo") +
+          (fmt.best ? " y el mejor " + (fmt.best.pos + 1) + "º" : "") +
+          " pasan a " + (fmt.knockout === 8 ? "cuartos" : "semis");
+      text = groups + "; " + pass;
+    }
+    return (n ? n + " jugadores: " : "") + text + ". Si hay empate en un partido a todo o nada, penales. " +
+      fmt.matches + " partidos en una consola, unas " + duration(fmt.minutes) + ".";
   }
 
   /* ---------- Piezas ---------- */
@@ -61,6 +76,29 @@
   function renderGroups() {
     var fmt = state.format;
     var frag = document.createDocumentFragment();
+    $("groups-title").textContent = fmt.direct ? "Primera ronda" : "Grupos";
+    if (fmt.direct) {
+      // Cruces directos: cada "grupo" es un partido a todo o nada o un pase directo.
+      var card = el("div", "group");
+      var games = el("div", "group-games");
+      state.groups.forEach(function (g) {
+        if (g.table.length === 1) {
+          var bye = el("div", "match bye");
+          bye.appendChild(side(g.table[0].num, "home"));
+          bye.appendChild(el("span", "score", "→"));
+          bye.appendChild(el("span", "side away muted", "Pasa directo a cuartos"));
+          games.appendChild(bye);
+        } else {
+          state.matches.filter(function (m) { return m.stage === "group" && m.grp === g.name; })
+            .forEach(function (m) { games.appendChild(matchEl(m)); });
+        }
+      });
+      card.appendChild(games);
+      frag.appendChild(card);
+      $("groups").replaceChildren(frag);
+      $("groups-block").hidden = false;
+      return;
+    }
     state.groups.forEach(function (g) {
       var card = el("div", "group");
       card.appendChild(el("h3", null, "Grupo " + g.name));
@@ -71,7 +109,7 @@
       var tbody = el("tbody");
       g.table.forEach(function (r, i) {
         var p = player(r.num);
-        var tr = el("tr", i < (fmt.groups === 1 ? 4 : fmt.perGroup) ? "q" : i === 2 && fmt.bestThirds ? "q3" : "");
+        var tr = el("tr", i < fmt.perGroup ? "q" : fmt.best && i === fmt.best.pos ? "q3" : "");
         tr.appendChild(el("td", "pos", String(i + 1)));
         var who = el("td", "who");
         if (p) { who.appendChild(S.avatar(p, "avatar-xs")); who.appendChild(el("span", null, p.name)); if (p.team) who.appendChild(S.crest(p.team, "sm")); }
@@ -98,10 +136,14 @@
     var block = $("next-block");
     if (!pending.length) { block.hidden = true; return; }
     var frag = document.createDocumentFragment();
-    pending.slice(0, 4).forEach(function (m, i) {
-      var wrap = el("div", "next-match" + (i < 2 ? " now" : ""));
-      var label = (m.stage === "group" ? "Grupo " + m.grp : STAGE_LABEL[m.stage]) + " · Consola " + (m.console || 1);
-      wrap.appendChild(el("span", "next-label", (i < 2 ? "Ahora · " : "Después · ") + label));
+    // Una sola consola: el que se juega ahora y los dos que siguen, para que vayan agarrando el joystick.
+    var playedCount = state.matches.filter(function (m) { return m.hg != null; }).length;
+    var total = state.format ? state.format.matches : state.matches.length;
+    pending.slice(0, 3).forEach(function (m, i) {
+      var wrap = el("div", "next-match" + (i === 0 ? " now" : ""));
+      var where = m.stage === "group" ? (state.format.direct ? "Primera ronda" : "Grupo " + m.grp) : STAGE_LABEL[m.stage];
+      var label = (i === 0 ? "Ahora" : i === 1 ? "Después" : "Se preparan") + " · " + where + " · Partido " + (playedCount + i + 1) + " de " + total;
+      wrap.appendChild(el("span", "next-label", label));
       wrap.appendChild(matchEl(m));
       frag.appendChild(wrap);
     });
@@ -211,7 +253,8 @@
   }
 
   function syncPens() {
-    var tie = current && current.stage !== "group" && $("hg").value !== "" && $("hg").value === $("ag").value;
+    var decisive = current && (current.stage !== "group" || (state.format && state.format.direct));
+    var tie = decisive && $("hg").value !== "" && $("hg").value === $("ag").value;
     $("pens").hidden = !tie;
   }
 
