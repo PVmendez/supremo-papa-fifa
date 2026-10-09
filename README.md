@@ -31,6 +31,7 @@ navegador ──► Cloudflare Pages ──┬── /*      ──► web/ (est
 | `GET`  | `/api/me?c=CODE` | Datos del invitado dueño del código |
 | `POST` | `/api/rsvp` | `{ "code": "ABC234", "status": "yes" \| "no" }`. Se puede cambiar la respuesta |
 | `POST` | `/api/admin/reset` | `{ "num": 3 }` + header `x-admin-token`. Vuelve un invitado a pendiente |
+| `POST` | `/api/admin/check` | Valida el código del organizador (header `x-admin-token`) |
 
 | `GET`  | `/api/draw` | Sorteo: equipos, quién tiene cada uno, quién falta y el último movimiento |
 | `POST` | `/api/admin/draw/next` | Abre el sobre del siguiente jugador |
@@ -60,7 +61,7 @@ Los códigos nunca llegan al front público: solo se resuelven en la Function.
 
 Los grupos se reparten con un equipo de cada bombo. Los partidos se asignan a la consola 1 o 2. Cuando terminan los grupos se arma la llave sola, y cada ronda se completa al cargar los ganadores. Si hay empate en la llave, se elige quién ganó por penales.
 
-Para manejarlo, abrí `/sorteo?admin` o `/torneo?admin` y pegá el `ADMIN_TOKEN`: queda guardado en ese navegador.
+Para manejarlo, en `/sorteo` o `/torneo` tocá "🔑 Soy el organizador" e ingresá el código del organizador (el `ADMIN_TOKEN`). Se valida en el momento y queda guardado en ese dispositivo hasta tocar "Salir". Así cualquiera puede manejar el sorteo desde su celular si le pasás el código.
 
 ## Verla en tu máquina
 

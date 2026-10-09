@@ -208,6 +208,11 @@ a.brand { text-decoration: none; }
 .rules li { background: var(--paper-2); border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); padding: 12px 16px; }
 
 .admin { padding: 0 16px 40px; }
+.admin-entry { display: flex; justify-content: center; padding: 0 16px 24px; }
+.admin-entry:has(> [hidden]) { display: none; }
+.admin-open { font-size: 16px; opacity: .9; }
+.admin-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.admin-head .btn-link { color: var(--mist); }
 .admin-inner {
   max-width: 900px; margin: 0 auto; background: var(--ink); color: var(--paper);
   border: 4px dashed var(--gold); padding: 20px; display: flex; flex-direction: column; gap: 14px;

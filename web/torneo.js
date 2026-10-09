@@ -176,8 +176,8 @@
 
   /* ---------- Admin ---------- */
 
-  var adminOn = false;
-  function isAdmin() { return adminOn && !!S.getToken(); }
+  var adminOn = false, gate = null;
+  function isAdmin() { return adminOn; }
   var msg = $("admin-msg");
 
   function adminRun(btn, path, body) {
@@ -185,13 +185,8 @@
     msg.textContent = "";
     return S.adminPost(path, body).then(render).catch(function (err) {
       msg.textContent = S.errorText(err);
-      if (err.status === 401) showTokenForm(true);
+      if (err.status === 401) gate.invalid();
     }).then(function () { btn.disabled = false; });
-  }
-
-  function showTokenForm(show) {
-    $("token-form").hidden = !show;
-    $("admin-actions").hidden = show;
   }
 
   var dialog = $("score-dialog"), current = null;
@@ -230,22 +225,13 @@
       render(next);
     }).catch(function (err) {
       $("score-msg").textContent = S.errorText(err);
+      if (err.status === 401) { closeScore(); gate.invalid(); }
     }).then(function () { save.disabled = false; });
   }
 
   function initAdmin() {
-    if (!S.wantsAdmin()) return;
-    adminOn = true;
-    $("admin").hidden = false;
-    showTokenForm(!S.getToken());
-    $("token-form").addEventListener("submit", function (e) {
-      e.preventDefault();
-      var t = $("token").value.trim();
-      if (!t) return;
-      S.setToken(t);
-      showTokenForm(false);
-      if (state) render(state);
-    });
+    // Al entrar o salir se repinta todo: los partidos pasan a ser botones para cargar resultados (o dejan de serlo).
+    gate = S.adminGate(function (on) { adminOn = on; if (state) render(state); });
     $("btn-start").addEventListener("click", function () {
       if (window.confirm("¿Armar los grupos con los que tienen equipo? Después el sorteo queda cerrado.")) adminRun($("btn-start"), "/admin/tournament/start");
     });

@@ -33,10 +33,61 @@
     });
   }
 
-  /** El panel de admin aparece si ya hay token guardado o si la URL trae ?admin. */
-  function wantsAdmin() {
-    if (memToken) return true;
-    try { return new URLSearchParams(window.location.search).has("admin"); } catch (e) { return false; }
+  /**
+   * Acceso del organizador, igual en /sorteo y /torneo: un botón visible abre un campo para el código;
+   * se valida contra la API y queda guardado en ese dispositivo hasta tocar "Salir".
+   * onChange(true|false) avisa a la página cuándo mostrar o esconder los controles.
+   */
+  function adminGate(onChange) {
+    var open = document.getElementById("admin-open");
+    var panel = document.getElementById("admin");
+    var form = document.getElementById("token-form");
+    var input = document.getElementById("token");
+    var actions = document.getElementById("admin-actions");
+    var logout = document.getElementById("admin-logout");
+    var msg = document.getElementById("admin-msg");
+
+    function show(state) {   // "closed" | "asking" | "on"
+      open.hidden = state !== "closed";
+      panel.hidden = state === "closed";
+      form.hidden = state !== "asking";
+      actions.hidden = state !== "on";
+      logout.hidden = state === "closed";
+      onChange(state === "on");
+    }
+
+    open.addEventListener("click", function () { show("asking"); input.focus(); });
+    logout.addEventListener("click", function () {
+      setToken("");
+      input.value = "";
+      msg.textContent = "";
+      show("closed");
+    });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var t = input.value.trim();
+      if (!t) return;
+      var btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      msg.textContent = "Verificando…";
+      api("/admin/check", { method: "POST", headers: { "content-type": "application/json", "x-admin-token": t } })
+        .then(function () {
+          setToken(t);
+          input.value = "";
+          msg.textContent = "";
+          show("on");
+        })
+        .catch(function (err) {
+          msg.textContent = err.status === 401 ? "Código incorrecto." : "No se pudo verificar. Probá de nuevo.";
+        })
+        .then(function () { btn.disabled = false; });
+    });
+
+    show(memToken ? "on" : "closed");
+    return {
+      /** La API rechazó el código guardado (por ejemplo, porque se cambió): se vuelve a pedir. */
+      invalid: function () { setToken(""); show("asking"); msg.textContent = "El código guardado ya no sirve. Ingresalo de nuevo."; }
+    };
   }
 
   function el(tag, cls, text) {
@@ -77,7 +128,7 @@
   }
 
   var ERRORS = {
-    unauthorized: "Token de admin incorrecto.",
+    unauthorized: "Código del organizador incorrecto.",
     nobody_waiting: "No queda nadie confirmado sin equipo.",
     no_teams_left: "No quedan sobres.",
     no_steals_left: "Ese jugador ya no tiene robos.",
@@ -96,7 +147,7 @@
 
   window.Supremo = {
     api: api, adminPost: adminPost, getToken: function () { return memToken; }, setToken: setToken,
-    wantsAdmin: wantsAdmin, el: el, crest: crest, avatar: avatar, errorText: errorText,
+    adminGate: adminGate, el: el, crest: crest, avatar: avatar, errorText: errorText,
     pollMs: 4000
   };
 })();

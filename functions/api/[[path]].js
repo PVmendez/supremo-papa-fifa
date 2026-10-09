@@ -4,6 +4,7 @@
 //   GET  /api/me?c=CODE      -> datos del invitado dueño del código
 //   POST /api/rsvp           -> { code, status: "yes" | "no" }
 //   POST /api/admin/reset    -> { num }  (header x-admin-token) vuelve a "pending"
+//   POST /api/admin/check    -> 200 si el código del organizador (header x-admin-token) es correcto
 //
 // Sorteo de equipos ("La noche de los sobres"):
 //   GET  /api/draw                 -> equipos, quién tiene cada uno, quién falta y el último movimiento
@@ -352,6 +353,12 @@ export async function onRequest({ request, env }) {
       if (!Number.isInteger(num)) return json(400, { error: "invalid_num" });
       const g = await setStatus(db, num, "pending");
       return g ? json(200, privateView(g)) : json(404, { error: "not_found" });
+    }
+
+    if (method === "POST" && path === "/admin/check") {
+      return sameToken(request.headers.get("x-admin-token") || "", env.ADMIN_TOKEN || "")
+        ? json(200, { ok: true })
+        : json(401, { error: "unauthorized" });
     }
 
     if (method === "GET" && path === "/draw") {

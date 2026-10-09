@@ -37,13 +37,17 @@
     </div>
   </section>
 
+  <div class="admin-entry"><button class="btn-link admin-open" id="admin-open" type="button" hidden>🔑 Soy el organizador</button></div>
   <section class="admin" id="admin" hidden>
     <div class="admin-inner">
-      <h2>Panel del organizador</h2>
-      <form class="admin-token" id="token-form">
-        <label for="token">Token de admin</label>
-        <input id="token" type="password" autocomplete="off" placeholder="Pegá el token">
-        <button class="btn btn-yes btn-sm" type="submit">Guardar</button>
+      <div class="admin-head">
+        <h2>Panel del organizador</h2>
+        <button class="btn-link" id="admin-logout" type="button" hidden>Salir</button>
+      </div>
+      <form class="admin-token" id="token-form" hidden>
+        <label for="token">Código del organizador</label>
+        <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ingresá tu código">
+        <button class="btn btn-yes btn-sm" type="submit">Entrar</button>
       </form>
       <div class="admin-actions" id="admin-actions" hidden>
         <button class="btn btn-yes" id="btn-next" type="button">Abrir siguiente sobre</button>

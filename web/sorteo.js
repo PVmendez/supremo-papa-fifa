@@ -203,9 +203,7 @@
 
   /* ---------- Admin ---------- */
 
-  var admin = document.getElementById("admin");
-  var actions = document.getElementById("admin-actions");
-  var tokenForm = document.getElementById("token-form");
+  var adminOn = false, gate = null;
   var msg = document.getElementById("admin-msg");
   var thiefSel = document.getElementById("thief");
   var victimSel = document.getElementById("victim");
@@ -213,7 +211,7 @@
   function option(value, text) { var o = document.createElement("option"); o.value = value; o.textContent = text; return o; }
 
   function renderAdminSelects() {
-    if (admin.hidden || !state) return;
+    if (!adminOn || !state) return;
     var prevT = thiefSel.value, prevV = victimSel.value;
     thiefSel.replaceChildren(option("", "—"));
     victimSel.replaceChildren(option("", "—"));
@@ -230,27 +228,12 @@
     msg.textContent = "";
     S.adminPost(path, body).then(apply).catch(function (err) {
       msg.textContent = S.errorText(err);
-      if (err.status === 401) showTokenForm(true);
+      if (err.status === 401) gate.invalid();
     }).then(function () { btn.disabled = false; });
   }
 
-  function showTokenForm(show) {
-    tokenForm.hidden = !show;
-    actions.hidden = show;
-  }
-
   function initAdmin() {
-    if (!S.wantsAdmin()) return;
-    admin.hidden = false;
-    showTokenForm(!S.getToken());
-    tokenForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var t = document.getElementById("token").value.trim();
-      if (!t) return;
-      S.setToken(t);
-      showTokenForm(false);
-      renderAdminSelects();
-    });
+    gate = S.adminGate(function (on) { adminOn = on; renderAdminSelects(); });
     var next = document.getElementById("btn-next");
     next.addEventListener("click", function () { if (!busy) run(next, "/admin/draw/next"); });
     var steal = document.getElementById("btn-steal");
