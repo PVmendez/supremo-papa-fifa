@@ -36,7 +36,8 @@ navegador ──► Cloudflare Pages ──┬── /*      ──► web/ (est
 | `GET`  | `/api/draw` | Sorteo: equipos, quién tiene cada uno, la fila, las casillas del fixture y a quién le toca |
 | `POST` | `/api/draw/start` | (organizador) Arma la fila al azar y una casilla vacía por confirmado |
 | `POST` | `/api/draw/shoot` | `{ "zone": "tl", "expect": 3 }`. Patea el primero de la fila |
-| `POST` | `/api/draw/pick` | `{ "team": "rma", "slot": 4, "expect": 3 }`. El que hizo el gol elige equipo y casilla |
+| `POST` | `/api/draw/pick` | `{ "team": "rma", "expect": 3 }`. El que hizo el gol elige equipo |
+| `POST` | `/api/admin/draw/place` | `{ "slot": 4, "expect": 3 }`. Con todos los equipos elegidos, ubica en una casilla al que le toca |
 | `POST` | `/api/admin/draw/absent` | `{ "num": 7 }`. El que no vino sale de la fila |
 | `POST` | `/api/admin/draw/remove-slot` | `{ "slot": 5 }`. Saca una casilla vacía que sobra |
 | `POST` | `/api/admin/draw/reset` | Borra el sorteo |
@@ -51,7 +52,7 @@ Los códigos nunca llegan al front público: solo se resuelven en la Function.
 
 ## Sorteo y torneo
 
-**`/sorteo` · La tanda de penales.** Entran los que confirmaron. El organizador toca "Empezar sorteo": se sortea el orden de la fila y se crea el fixture, una ronda con una casilla vacía por jugador (cada casilla juega contra la de al lado de cada lado; la última contra la primera). Patea el primero: elige uno de los 5 lugares del arco y el arquero se tira al azar (`lib/penalty.js`; cualquier lugar es gol 2 de cada 3 veces). Con gol elige uno de los 16 equipos de FC 27 que quedan y después su casilla, viendo contra quién jugaría; si falla, pasa al final de la fila. Cada penal y cada elección se anima en una tarjeta centrada en todas las pantallas. Patea el organizador o el propio jugador desde su celular, si abrió `/sorteo` con su link. Si alguien llega tarde se agrega una casilla al final; si alguien no vino, el organizador lo saca de la fila (✕) y saca la casilla vacía que sobra. Los equipos están en `TEAMS`, en `functions/api/[[path]].js`.
+**`/sorteo` · La tanda de penales.** Entran los que confirmaron. El organizador toca "Empezar sorteo": se sortea el orden de la fila y se crea el fixture, una ronda con una casilla vacía por jugador (cada casilla juega contra la de al lado de cada lado; la última contra la primera). Patea el primero: elige uno de los 5 lugares del arco y el arquero se tira al azar (`lib/penalty.js`; cualquier lugar es gol 2 de cada 3 veces). Con gol elige uno de los 16 equipos de FC 27 que quedan; si falla, pasa al final de la fila. Cuando todos tienen equipo, se eligen las casillas en el mismo orden en que eligieron equipo: el fixture sube arriba de la página y el organizador toca la casilla libre que dice cada uno; en todas las pantallas se resalta dónde quedó. Cada penal y cada elección se anima en una tarjeta centrada en todas las pantallas. Patea el organizador o el propio jugador desde su celular, si abrió `/sorteo` con su link. Si alguien llega tarde se agrega una casilla al final: patea, elige equipo y elige casilla último; si alguien no vino, el organizador lo saca de la fila (✕) y saca la casilla vacía que sobra. Los equipos están en `TEAMS`, en `functions/api/[[path]].js`.
 
 **`/torneo`.** Una sola consola, tiempos de 3 minutos (~8 minutos por partido). El organizador toca "Armar la liga" y los partidos salen de las casillas (`lib/tournament.js`):
 

@@ -134,6 +134,7 @@
     must_pick: "Primero tiene que elegir equipo el que hizo el gol.",
     not_shooting: "Ahora no hay nadie para patear.",
     not_picking: "Ahora no toca elegir equipo.",
+    not_placing: "Ahora no toca elegir casilla.",
     not_your_turn: "Cambió el turno. Mirá quién patea ahora.",
     invalid_zone: "Elegí un lugar del arco.",
     invalid_team: "Ese equipo no existe.",

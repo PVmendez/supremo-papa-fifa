@@ -404,7 +404,7 @@ body.has-dock { padding-bottom: 96px; }
 .ring-wrap { padding: 0 16px 64px; }
 .ring-wrap[hidden] { display: none; }
 .ring-wrap .muted { margin: 0 0 16px; }
-.ring { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 12px; counter-reset: slot; }
+.ring { min-width: 0; }
 .slot-card {
   position: relative; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; text-align: left;
   background: var(--paper-2); color: var(--ink); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); font: inherit;
@@ -584,3 +584,11 @@ button.match:hover { box-shadow: 4px 4px 0 var(--gold); }
 .league-map { grid-column: 1 / -1; }
 .overlay .zz-scroll.zz-vertical { max-height: 52vh; overflow-y: auto; overflow-x: hidden; }
 .zz-vertical .zz { margin: 0 auto; }
+.ring-wrap.placing { background: var(--ink); color: var(--paper); padding-top: 32px; padding-bottom: 40px; margin-bottom: 40px; border-top: 6px solid var(--gold); border-bottom: 6px solid var(--gold); }
+.ring-wrap.placing .board-title { color: var(--gold); }
+.ring-wrap.placing #ring-note { color: var(--paper); font-size: 18px; font-weight: 600; }
+.ring-wrap.placing .zz-arrow { background: var(--ink); color: var(--mist); }
+.ring-wrap.placing .zz-edge { stroke: var(--mist); }
+.ring-wrap.placing .zz-edge.lit { stroke: var(--gold); }
+#ring-note.ring-flash { color: var(--red); font-weight: 800; font-size: 18px; }
+.ring-wrap.placing #ring-note.ring-flash { color: var(--gold); }

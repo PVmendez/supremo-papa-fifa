@@ -10,7 +10,9 @@
 //   GET  /api/draw                    -> equipos, quién tiene cada uno, la fila, las casillas del fixture y el último movimiento
 //   POST /api/draw/start              -> (organizador) arma la fila al azar y una casilla vacía por confirmado
 //   POST /api/draw/shoot              -> { zone, expect } patea el que está primero en la fila
-//   POST /api/draw/pick               -> { team, slot, expect } el que hizo el gol elige equipo y casilla
+//   POST /api/draw/pick               -> { team, expect } el que hizo el gol elige equipo
+//   POST /api/admin/draw/place        -> { slot, expect } cuando todos tienen equipo, el organizador ubica a cada uno
+//                                        en su casilla, en el mismo orden en que eligieron equipo
 //   POST /api/admin/draw/absent       -> { num } el que no vino sale de la fila
 //   POST /api/admin/draw/remove-slot  -> { slot } saca una casilla vacía que sobra
 //   POST /api/admin/draw/reset        -> borra el sorteo
@@ -135,15 +137,19 @@ async function drawState(db) {
   }
 
   // Después de un gol, el que lo hizo tiene que elegir equipo antes de que patee el siguiente.
+  // Cuando ya no queda nadie en la fila, cada uno elige casilla en el orden en que eligió equipo.
   const ev = last.results[0] || null;
   const scorer = ev && ev.kind === "shot" && ev.result === "gol" && line.includes(ev.num) ? ev.num : null;
-  const phase = !started ? "idle" : scorer != null ? "pick" : line.length ? "shoot" : "done";
+  const placed = new Set(ring.filter((r) => r.num != null).map((r) => r.num));
+  const toPlace = players.filter((p) => !placed.has(p.num)).map((p) => p.num);
+  const phase = !started ? "idle" : scorer != null ? "pick" : line.length ? "shoot" : toPlace.length ? "place" : "done";
+  const current = scorer ?? (phase === "shoot" ? line[0] : phase === "place" ? toPlace[0] : null);
   return {
     teams: TEAMS, players,
     queue: line.map((num) => person(confirmed.get(num))),
     waiting: started ? [] : waiting.map(person),
-    slots: ring,
-    phase, current: scorer ?? line[0] ?? null, last: ev,
+    slots: ring, toPlace,
+    phase, current: current ?? null, last: ev,
   };
 }
 
@@ -203,9 +209,6 @@ async function drawPick(db, body) {
   const team = String(body?.team || "");
   if (!TEAM_IDS.has(team)) return { error: "invalid_team" };
   if (state.players.some((p) => p.team === team)) return { error: "team_taken" };
-  const slot = state.slots.find((r) => r.slot === Number(body?.slot));
-  if (!slot) return { error: "invalid_slot" };
-  if (slot.num != null) return { error: "slot_taken" };
 
   const ord = state.players.reduce((m, p) => Math.max(m, p.ord), 0) + 1;
   await db.batch([
@@ -215,8 +218,22 @@ async function drawPick(db, body) {
     db.prepare("INSERT INTO picks (num, team, ord, updated_at) VALUES (?1, ?2, ?3, ?4)")
       .bind(state.current, team, ord, new Date().toISOString()),
     db.prepare("UPDATE slots SET num = NULL WHERE num = ?1").bind(state.current),
-    db.prepare("UPDATE slots SET num = ?1 WHERE slot = ?2").bind(state.current, slot.slot),
     logEvent(db, "pick", { num: state.current, team }),
+  ]);
+  return { ok: true };
+}
+
+/** Segunda parte del sorteo: el organizador ubica en una casilla libre al que le toca. */
+async function drawPlace(db, body) {
+  const state = await drawState(db);
+  if (state.phase !== "place") return { error: "not_placing" };
+  if (Number(body?.expect) !== state.current) return { error: "not_your_turn" };
+  const slot = state.slots.find((r) => r.slot === Number(body?.slot));
+  if (!slot) return { error: "invalid_slot" };
+  if (slot.num != null) return { error: "slot_taken" };
+  await db.batch([
+    ...saveDraw(db, state),
+    db.prepare("UPDATE slots SET num = ?1 WHERE slot = ?2").bind(state.current, slot.slot),
   ]);
   return { ok: true };
 }
@@ -269,7 +286,8 @@ async function tournamentData(db) {
   // La ronda en el orden de las casillas; las vacías o de alguien que ya no juega no cuentan.
   const ring = slotRows.results.filter((r) => byNum.has(r.num)).map((r) => r.num);
   const emptySlots = slotRows.results.length - ring.length;
-  return { byNum, ring, emptySlots, matches: matchRows.results };
+  const unplaced = byNum.size - ring.length;
+  return { byNum, ring, emptySlots, unplaced, matches: matchRows.results };
 }
 
 async function tournamentState(db) {
@@ -292,9 +310,9 @@ async function tournamentState(db) {
 }
 
 async function startTournament(db) {
-  const { ring, emptySlots, matches } = await tournamentData(db);
+  const { ring, emptySlots, unplaced, matches } = await tournamentData(db);
   if (matches.length) return { error: "groups_already_built" };
-  if (await db.prepare("SELECT 1 FROM penalty_queue LIMIT 1").first()) return { error: "draw_not_finished" };
+  if (unplaced || (await db.prepare("SELECT 1 FROM penalty_queue LIMIT 1").first())) return { error: "draw_not_finished" };
   if (emptySlots) return { error: "empty_slots" };
   const fmt = formatFor(ring.length);
   if (!fmt) return { error: "invalid_player_count" };
@@ -427,6 +445,7 @@ export async function onRequest({ request, env }) {
       } else {
         if (!isAdmin) return json(401, { error: "unauthorized" });
         if (path === "/draw/start") result = await drawStart(db);
+        else if (path === "/admin/draw/place") result = await drawPlace(db, body);
         else if (path === "/admin/draw/absent") result = await drawAbsent(db, body);
         else if (path === "/admin/draw/remove-slot") result = await drawRemoveSlot(db, body);
         else if (path === "/admin/draw/reset") {

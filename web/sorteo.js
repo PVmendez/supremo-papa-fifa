@@ -108,23 +108,72 @@
     });
   }
 
+  var lastPlaced = null, flash = null, flashTimer = null;
+
+  /** Detecta quién se acaba de ubicar (comparando con la vez anterior) para resaltarlo en todas las pantallas. */
+  function trackPlacements() {
+    var now = {};
+    state.slots.forEach(function (sl, i) { if (sl.num != null) now[sl.num] = i; });
+    var fresh = null;
+    if (lastPlaced) Object.keys(now).forEach(function (num) { if (!(num in lastPlaced)) fresh = Number(num); });
+    lastPlaced = now;
+    if (fresh == null) return;
+    flash = { num: fresh, index: now[fresh] };
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(function () { flash = null; ringKey = ""; if (state && !busy) renderRing(); }, 7000);
+  }
+
   function renderRing() {
-    var key = JSON.stringify([state.slots, state.players, adminOn, state.queue.length]);
+    var key = JSON.stringify([state.slots, state.players, adminOn, state.queue.length, state.phase, state.current, flash]);
     if (key === ringKey) return;
     ringKey = key;
     var wrap = $("ring-wrap");
     wrap.hidden = !state.slots.length;
     if (!state.slots.length) return;
-    $("ring-note").textContent = state.slots.length < 8
-      ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
-      : "Cada casilla juega contra la de al lado de cada lado (la última contra la primera). Al meter el gol elegís equipo y casilla.";
+    // Durante la elección de casillas (y al final) el fixture va arriba de los equipos.
+    var placing = state.phase === "place" || state.phase === "done";
+    var boardWrap = document.querySelector(".board-wrap");
+    if (placing && wrap.nextElementSibling !== boardWrap) boardWrap.parentNode.insertBefore(wrap, boardWrap);
+    wrap.classList.toggle("placing", state.phase === "place");
+
+    var note;
+    if (flash) {
+      var who = personOf(flash.num);
+      note = "📍 " + who.name + " se ubicó en la casilla " + (flash.index + 1) + (state.slots.length >= 8 ? ": juega con " + rivalsText(flash.index) + "." : ".");
+    } else if (state.phase === "place") {
+      var cur = personOf(state.current), t = teamOf((state.players.find(function (p) { return p.num === state.current; }) || {}).team);
+      note = "Le toca elegir casilla a " + cur.name + (t ? " (" + t.name + ")" : "") + "." +
+        (adminOn ? " Tocá una casilla libre: las dos líneas que salen de ella son sus dos partidos." : "");
+    } else {
+      note = state.slots.length < 8
+        ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
+        : "Cada casilla juega contra la de al lado de cada lado (la última contra la primera). Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
+    }
+    $("ring-note").textContent = note;
+    $("ring-note").classList.toggle("ring-flash", !!flash);
+
     var removable = adminOn && canRemoveSlot();
-    ringBox.replaceChildren(S.zigzag({ nodes: zigzagNodes(function (sl, i) {
-      if (!removable || sl.num != null || sl.pending) return {};
-      return { onRemove: function () {
-        if (window.confirm("¿Sacar la casilla " + (i + 1) + "? Las de al lado pasan a jugar entre ellas.")) adminAction("/admin/draw/remove-slot", { slot: sl.slot });
-      } };
-    }) }));
+    var canPlace = adminOn && state.phase === "place";
+    ringBox.replaceChildren(S.zigzag({
+      highlight: flash ? flash.index : null,
+      nodes: zigzagNodes(function (sl, i) {
+        if (sl.num != null) return {};
+        var extra = {};
+        if (canPlace) {
+          extra.onClick = function () {
+            var who = personOf(state.current);
+            var msg = "¿" + who.name + " en la casilla " + (i + 1) + "?" + (state.slots.length >= 8 ? " Juega contra " + rivalsText(i) + "." : "");
+            if (window.confirm(msg)) adminAction("/admin/draw/place", { slot: sl.slot, expect: state.current });
+          };
+        }
+        if (removable && !sl.pending) {
+          extra.onRemove = function () {
+            if (window.confirm("¿Sacar la casilla " + (i + 1) + "? Las de al lado pasan a jugar entre ellas.")) adminAction("/admin/draw/remove-slot", { slot: sl.slot });
+          };
+        }
+        return extra;
+      }),
+    }));
   }
 
   /* ---------- Turno y fila ---------- */
@@ -137,15 +186,32 @@
     if (state.phase === "idle") {
       turnBox.appendChild(el("p", "stage-idle", "Esperando que arranque el sorteo…"));
     } else if (state.phase === "done") {
-      turnBox.appendChild(el("p", "stage-idle", "Todos tienen equipo. ¡Que empiece el torneo!"));
+      turnBox.appendChild(el("p", "stage-idle", "Todos tienen equipo y casilla. ¡Que empiece el torneo!"));
     } else {
       var row = el("div", "turn-row");
       row.appendChild(S.avatar(cur, "avatar-lg"));
       var txt = el("div", "turn-text");
-      txt.appendChild(el("small", null, state.phase === "pick" ? "¡Hizo el gol! Está eligiendo equipo" : "Patea"));
+      txt.appendChild(el("small", null, state.phase === "pick" ? "¡Hizo el gol! Está eligiendo equipo" :
+        state.phase === "place" ? "Elige casilla" : "Patea"));
       txt.appendChild(el("strong", null, cur.name));
       row.appendChild(txt);
       turnBox.appendChild(row);
+    }
+
+    if (state.phase === "place") {
+      lineBox.appendChild(el("h3", null, "Orden para elegir casilla"));
+      var order = el("ol", "chips line-chips");
+      state.toPlace.forEach(function (num, i) {
+        var p = state.players.find(function (x) { return x.num === num; }) || personOf(num);
+        var chip = el("li", "chip" + (num === state.current ? " now" : ""));
+        chip.appendChild(el("span", "chip-pos", String(i + 1)));
+        chip.appendChild(S.avatar(p, "avatar-xs"));
+        chip.appendChild(document.createTextNode(p.name));
+        var t = teamOf(p.team);
+        if (t) chip.appendChild(S.crest(t, "sm"));
+        order.appendChild(chip);
+      });
+      lineBox.appendChild(order);
     }
 
     if (state.queue.length && state.phase !== "idle") {
@@ -199,7 +265,7 @@
    * Al que le toca (o al organizador) se le abre la misma tarjeta centrada de las animaciones:
    * su foto y el arco grande, y toca directo el lugar donde patea. Con gol, ahí mismo elige equipo.
    */
-  var playKey = "", hiddenKey = null, pickTeam = null;
+  var playKey = "", hiddenKey = null;
 
   function renderPlay() {
     $("btn-start").hidden = !adminOn || !state || state.phase !== "idle";
@@ -219,7 +285,6 @@
     hiddenKey = null;
     reopen.hidden = true;
     if (key === playKey && overlay.classList.contains("control") && !overlay.hidden) return;
-    if (key !== playKey) pickTeam = null;
     playKey = key;
     buildControl(who);
   }
@@ -260,8 +325,8 @@
       } else {
         g.ball.setAttribute("transform", "translate(160 192) scale(1.25)");
       }
-    } else if (!pickTeam) {
-      // Con gol, primero el equipo…
+    } else {
+      // Con gol, elige equipo. La casilla se elige después, cuando todos tienen equipo.
       row.appendChild(playerBlock(who, mine ? "¡Gol! Elegí tu equipo" : "¡Gol! Elige equipo"));
       var taken = {};
       state.players.forEach(function (p) { taken[p.team] = true; });
@@ -271,33 +336,12 @@
         b.type = "button";
         b.appendChild(S.crest(t));
         b.appendChild(el("span", null, t.name));
-        b.addEventListener("click", function () { pickTeam = t.id; buildControl(who); });
+        b.addEventListener("click", function () {
+          if (window.confirm("¿Elegir " + t.name + "?")) send("/draw/pick", { team: t.id, expect: state.current });
+        });
         grid.appendChild(b);
       });
       row.appendChild(grid);
-      wrap.appendChild(row);
-    } else {
-      // …y después la casilla, viendo contra quién jugaría en cada una.
-      var team = teamOf(pickTeam);
-      row.appendChild(playerBlock(who, mine ? "Elegí tu casilla" : "Elige casilla"));
-      var side = el("div", "slot-pick");
-      var chosen = el("div", "slot-pick-team");
-      chosen.appendChild(S.crest(team));
-      chosen.appendChild(el("b", null, team.name));
-      var change = el("button", "btn-link", "Cambiar equipo");
-      change.type = "button";
-      change.addEventListener("click", function () { pickTeam = null; buildControl(who); });
-      chosen.appendChild(change);
-      side.appendChild(chosen);
-      side.appendChild(el("p", "slot-help", "Tocá una casilla libre: las dos líneas que salen de ella son tus dos partidos."));
-      side.appendChild(S.zigzag({ nodes: zigzagNodes(function (sl, i) {
-        if (sl.num != null) return {};
-        return { onClick: function () {
-          var msg = "¿" + team.name + " en la casilla " + (i + 1) + "?" + (state.slots.length >= 8 ? " Jugás contra " + rivalsText(i) + "." : "");
-          if (window.confirm(msg)) send("/draw/pick", { team: team.id, slot: sl.slot, expect: state.current });
-        } };
-      }) }));
-      row.appendChild(side);
       wrap.appendChild(row);
     }
     if (adminOn) {
@@ -493,9 +537,7 @@
     overlayStage.replaceChildren();
     var row = el("div", "stage-row");
     var who = playerBlock(p, "Eligió");
-    var i = slotIndex(ev.num);
-    var note = i < 0 ? "" : "Casilla " + (i + 1) + (state.slots.length >= 8 ? " · juega con " + rivalsText(i) : "");
-    var rev = revealBlock(team, note);
+    var rev = revealBlock(team);
     row.appendChild(who);
     row.appendChild(rev);
     overlayStage.appendChild(row);
@@ -537,7 +579,7 @@
     setTimeout(function () { tile.classList.remove("just-drawn"); }, 6000);
   }
 
-  function renderAll() { renderTurn(); renderBoard(); renderRing(); renderPlay(); }
+  function renderAll() { trackPlacements(); renderTurn(); renderBoard(); renderRing(); renderPlay(); }
 
   function adminAction(path, body) {
     $("admin-msg").textContent = "";
