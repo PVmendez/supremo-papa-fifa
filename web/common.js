@@ -154,7 +154,148 @@
   };
   function errorText(err) { return ERRORS[err && err.code] || "Algo falló. Probá de nuevo."; }
 
+  /**
+   * Fixture en zigzag: las casillas en dos filas (1, 3, 5… arriba; 2, 4, 6… abajo) y una línea por partido
+   * entre cada casilla y la siguiente; la última vuelve a la primera con una flecha. Así cada casilla tiene
+   * sus dos líneas salientes, una a cada rival.
+   *   nodes: [{ label, person, team, free, mine, onClick, onRemove }]
+   *   edges: (opcional) un texto por partido: edges[i] es el de la casilla i contra la i+1 (la última contra la 1ª)
+   *   highlight: (opcional) índice de casilla a resaltar con sus dos partidos
+   * Al pasar por una casilla libre que se puede tocar, se iluminan sus dos líneas.
+   */
+  function zigzag(opts) {
+    var nodes = opts.nodes, n = nodes.length;
+    // En pantallas angostas va vertical: dos columnas (1, 3, 5… a la izquierda) que bajan en zigzag.
+    var vertical = opts.vertical != null ? opts.vertical : window.innerWidth < 640;
+    var NODE_W = 92, NODE_H = 84, STEP = vertical ? 78 : 88, PAD = 46, W, H, cx, cy;
+    if (vertical) {
+      var LEFT = 26 + NODE_W / 2, RIGHT = LEFT + NODE_W + 70;
+      W = RIGHT + NODE_W / 2 + 26;
+      H = PAD + NODE_H + Math.max(0, n - 1) * STEP + 20;
+      cx = function (i) { return i % 2 === 0 ? LEFT : RIGHT; };
+      cy = function (i) { return PAD / 2 + NODE_H / 2 + i * STEP; };
+    } else {
+      var TOP_Y = 74, BOT_Y = 196;
+      W = PAD * 2 + NODE_W + Math.max(0, n - 1) * STEP;
+      H = 272;
+      cx = function (i) { return PAD + NODE_W / 2 + i * STEP; };
+      cy = function (i) { return i % 2 === 0 ? TOP_Y : BOT_Y; };
+    }
+
+    var scroll = el("div", "zz-scroll" + (vertical ? " zz-vertical" : ""));
+    var box = el("div", "zz");
+    box.style.width = W + "px";
+    box.style.height = H + "px";
+    scroll.appendChild(box);
+
+    var SVGNS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("class", "zz-lines");
+    svg.setAttribute("width", W);
+    svg.setAttribute("height", H);
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    box.appendChild(svg);
+
+    var edgeEls = [], labelEls = [];
+    function addEdge(i, d, lx, ly) {
+      var path = document.createElementNS(SVGNS, "path");
+      path.setAttribute("d", d);
+      path.setAttribute("class", "zz-edge" + (i === n - 1 && n > 2 ? " zz-wrap" : ""));
+      svg.appendChild(path);
+      edgeEls[i] = path;
+      var text = opts.edges && opts.edges[i];
+      var lab = el("span", "zz-label" + (text && text.cls ? " " + text.cls : ""), text ? text.text : "vs");
+      lab.style.left = lx + "px";
+      lab.style.top = ly + "px";
+      box.appendChild(lab);
+      labelEls[i] = lab;
+    }
+    if (n >= 2) {
+      for (var i = 0; i < n - 1; i++) {
+        addEdge(i, "M" + cx(i) + " " + cy(i) + " L" + cx(i + 1) + " " + cy(i + 1),
+          (cx(i) + cx(i + 1)) / 2, (cy(i) + cy(i + 1)) / 2);
+      }
+      if (n > 2) {
+        // La vuelta: de la última a la primera, por afuera, con una flecha.
+        var last = n - 1, same = last % 2 === 0, d, lx, ly, ax, ay;
+        if (vertical) {
+          // Por el costado: la izquierda si la última está a la izquierda; si no, por la derecha y arriba.
+          var xSide = same ? 10 : W - 10;
+          var xFrom = same ? cx(last) - NODE_W / 2 : cx(last) + NODE_W / 2;
+          if (same) d = "M" + xFrom + " " + cy(last) + " H" + xSide + " V" + cy(0) + " H" + (cx(0) - NODE_W / 2);
+          else d = "M" + xFrom + " " + cy(last) + " H" + xSide + " V" + 8 + " H" + cx(0) + " V" + (cy(0) - NODE_H / 2);
+          lx = xSide; ly = (cy(0) + cy(last)) / 2; ax = xSide; ay = cy(0) + STEP / 2;
+        } else {
+          // Por arriba si la última está arriba; si no, por abajo.
+          var yEdge = same ? 12 : H - 12, xBack = PAD - 26;
+          var yLast = same ? cy(last) - NODE_H / 2 : cy(last) + NODE_H / 2;
+          d = "M" + cx(last) + " " + yLast + " V" + yEdge + " H" + xBack + " V" + cy(0) + " H" + (cx(0) - NODE_W / 2);
+          lx = (cx(last) + xBack) / 2; ly = yEdge; ax = xBack; ay = same ? cy(0) / 2 : (cy(0) + H) / 2;
+        }
+        addEdge(last, d, lx, ly);
+        var arrow = el("span", "zz-arrow", "↺");
+        arrow.style.left = ax + "px";
+        arrow.style.top = ay + "px";
+        box.appendChild(arrow);
+      }
+    }
+
+    function light(i, on) {
+      if (i == null || n < 2) return;
+      var prev = (i - 1 + n) % n;
+      [i, prev].forEach(function (e) {
+        if (edgeEls[e]) edgeEls[e].classList.toggle("lit", on);
+        if (labelEls[e]) labelEls[e].classList.toggle("lit", on);
+      });
+      [prev, (i + 1) % n].forEach(function (j) { if (nodeEls[j] && j !== i) nodeEls[j].classList.toggle("rival", on); });
+    }
+
+    var nodeEls = nodes.map(function (nd, i) {
+      var node = el(nd.onClick ? "button" : "div", "zz-node" + (nd.free ? " free" : " taken") + (nd.mine ? " mine" : "") + (nd.onClick ? " pickable" : ""));
+      if (nd.onClick) {
+        node.type = "button";
+        node.addEventListener("click", nd.onClick);
+        node.addEventListener("mouseenter", function () { light(i, true); });
+        node.addEventListener("mouseleave", function () { light(i, false); });
+        node.addEventListener("focus", function () { light(i, true); });
+        node.addEventListener("blur", function () { light(i, false); });
+      }
+      node.style.left = (cx(i) - NODE_W / 2) + "px";
+      node.style.top = (cy(i) - NODE_H / 2) + "px";
+      node.style.width = NODE_W + "px";
+      node.style.height = NODE_H + "px";
+      node.appendChild(el("span", "zz-num", nd.label));
+      if (nd.person) {
+        var face = el("span", "zz-face");
+        face.appendChild(avatar(nd.person, "avatar-sm"));
+        if (nd.team) face.appendChild(crest(nd.team, "sm"));
+        node.appendChild(face);
+        node.appendChild(el("b", "zz-name", nd.person.name));
+      } else {
+        node.appendChild(el("span", "zz-free", "?"));
+        node.appendChild(el("b", "zz-name", "Libre"));
+      }
+      if (nd.onRemove) {
+        var x = el("button", "zz-x", "✕");
+        x.type = "button";
+        x.title = "Sacar esta casilla";
+        x.addEventListener("click", function (e) { e.stopPropagation(); nd.onRemove(); });
+        node.appendChild(x);
+      }
+      box.appendChild(node);
+      return node;
+    });
+
+    if (opts.highlight != null && opts.highlight >= 0) {
+      nodeEls[opts.highlight].classList.add("hl");
+      light(opts.highlight, true);
+    }
+    return scroll;
+  }
+
   window.Supremo = {
+    zigzag: zigzag,
     api: api, adminPost: adminPost, getToken: function () { return memToken; }, setToken: setToken,
     adminGate: adminGate, el: el, crest: crest, avatar: avatar, errorText: errorText,
     pollMs: 4000

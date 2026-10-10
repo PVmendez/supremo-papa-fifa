@@ -108,8 +108,31 @@
     state.matches.filter(function (m) { return m.stage === "league"; }).forEach(function (m) { games.appendChild(matchEl(m)); });
     fixture.appendChild(games);
 
-    $("groups").replaceChildren(card, fixture);
+    var parts = [card, fixture];
+    if (state.format.kind === "ring" && state.ring && state.ring.length > 2) parts.unshift(leagueMap());
+    $("groups").replaceChildren.apply($("groups"), parts);
     $("groups-block").hidden = false;
+  }
+
+  /** El fixture de la liga en zigzag, con el resultado sobre cada línea. */
+  function leagueMap() {
+    var ring = state.ring, n = ring.length;
+    var league = state.matches.filter(function (m) { return m.stage === "league"; });
+    var edges = ring.map(function (a, i) {
+      var b = ring[(i + 1) % n];
+      var m = league.find(function (x) { return (x.home === a && x.away === b) || (x.home === b && x.away === a); });
+      if (!m || m.hg == null) return { text: "vs" };
+      var mine = m.home === a ? [m.hg, m.ag] : [m.ag, m.hg];
+      return { text: mine[0] + " – " + mine[1], cls: "played" };
+    });
+    var nodes = ring.map(function (num, i) {
+      var p = player(num);
+      return { label: String(i + 1), person: p, team: p && p.team, free: !p };
+    });
+    var box = el("div", "group league-map");
+    box.appendChild(el("h3", null, "El fixture"));
+    box.appendChild(S.zigzag({ nodes: nodes, edges: edges }));
+    return box;
   }
 
   function renderNext() {

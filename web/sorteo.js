@@ -99,24 +99,13 @@
     return state.slots.length - 1 >= state.players.length + state.queue.length;
   }
 
-  /** Una casilla: quién la ocupa, con qué equipo y contra quién juega. */
-  function slotCard(sl, i, onPick) {
-    var p = sl.num != null ? state.players.find(function (x) { return x.num === sl.num; }) : null;
-    var card = el(onPick ? "button" : "div", "slot-card" + (p ? " taken" : " free") + (me && p && p.num === me.num ? " mine" : ""));
-    if (onPick) { card.type = "button"; card.addEventListener("click", onPick); }
-    card.appendChild(el("span", "slot-num", "Casilla " + (i + 1)));
-    var who = el("span", "slot-who");
-    if (p) {
-      who.appendChild(S.avatar(p, "avatar-xs"));
-      who.appendChild(el("b", null, p.name));
-      var team = teamOf(p.team);
-      if (team) who.appendChild(S.crest(team, "sm"));
-    } else {
-      who.appendChild(el("b", "muted", "Libre"));
-    }
-    card.appendChild(who);
-    if (state.slots.length > 2) card.appendChild(el("small", "slot-rivals", "Juega con " + rivalsText(i)));
-    return card;
+  /** Las casillas como nodos del zigzag; extra(sl, i) agrega lo propio de cada uso (tocar, sacar). */
+  function zigzagNodes(extra) {
+    return state.slots.map(function (sl, i) {
+      var p = sl.num != null ? state.players.find(function (x) { return x.num === sl.num; }) : null;
+      var nd = { label: String(i + 1), person: p, team: p ? teamOf(p.team) : null, free: !p, mine: !!(me && p && p.num === me.num) };
+      return extra ? Object.assign(nd, extra(sl, i)) : nd;
+    });
   }
 
   function renderRing() {
@@ -129,21 +118,13 @@
     $("ring-note").textContent = state.slots.length < 8
       ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
       : "Cada casilla juega contra la de al lado de cada lado (la última contra la primera). Al meter el gol elegís equipo y casilla.";
-    var frag = document.createDocumentFragment();
-    state.slots.forEach(function (sl, i) {
-      var card = slotCard(sl, i);
-      if (adminOn && sl.num == null && !sl.pending && canRemoveSlot()) {
-        var x = el("button", "slot-x", "✕");
-        x.type = "button";
-        x.title = "Sacar esta casilla";
-        x.addEventListener("click", function () {
-          if (window.confirm("¿Sacar la casilla " + (i + 1) + "? Las de al lado pasan a jugar entre ellas.")) adminAction("/admin/draw/remove-slot", { slot: sl.slot });
-        });
-        card.appendChild(x);
-      }
-      frag.appendChild(card);
-    });
-    ringBox.replaceChildren(frag);
+    var removable = adminOn && canRemoveSlot();
+    ringBox.replaceChildren(S.zigzag({ nodes: zigzagNodes(function (sl, i) {
+      if (!removable || sl.num != null || sl.pending) return {};
+      return { onRemove: function () {
+        if (window.confirm("¿Sacar la casilla " + (i + 1) + "? Las de al lado pasan a jugar entre ellas.")) adminAction("/admin/draw/remove-slot", { slot: sl.slot });
+      } };
+    }) }));
   }
 
   /* ---------- Turno y fila ---------- */
@@ -308,17 +289,14 @@
       change.addEventListener("click", function () { pickTeam = null; buildControl(who); });
       chosen.appendChild(change);
       side.appendChild(chosen);
-      var slots = el("div", "slot-grid");
-      state.slots.forEach(function (sl, i) {
-        var free = sl.num == null;
-        var card = slotCard(sl, i, free ? function () {
+      side.appendChild(el("p", "slot-help", "Tocá una casilla libre: las dos líneas que salen de ella son tus dos partidos."));
+      side.appendChild(S.zigzag({ nodes: zigzagNodes(function (sl, i) {
+        if (sl.num != null) return {};
+        return { onClick: function () {
           var msg = "¿" + team.name + " en la casilla " + (i + 1) + "?" + (state.slots.length >= 8 ? " Jugás contra " + rivalsText(i) + "." : "");
           if (window.confirm(msg)) send("/draw/pick", { team: team.id, slot: sl.slot, expect: state.current });
-        } : null);
-        if (!free) card.classList.add("disabled");
-        slots.appendChild(card);
-      });
-      side.appendChild(slots);
+        } };
+      }) }));
       row.appendChild(side);
       wrap.appendChild(row);
     }
