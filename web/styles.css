@@ -288,6 +288,7 @@ a.brand { text-decoration: none; }
 .overlay .stage-player small, .overlay .reveal small { font-size: clamp(18px, 2.4vw, 24px); }
 .overlay .crest-xl { width: clamp(150px, 20vw, 220px); height: clamp(150px, 20vw, 220px); padding: clamp(12px, 1.8vw, 20px); }
 body.overlay-open { overflow: hidden; }
+@media (min-width: 641px) { .overlay .stage-row { flex-wrap: nowrap; } .overlay .reveal small { max-width: 34ch; } }
 
 .team-tile { transition: box-shadow .3s ease, background-color .3s ease; }
 .team-tile.just-drawn { background: #fff7d6; box-shadow: 4px 4px 0 var(--gold), 0 0 0 4px var(--gold); }
@@ -396,6 +397,39 @@ body.has-dock { padding-bottom: 96px; }
 .start-box { display: flex; flex-direction: column; align-items: center; gap: 24px; }
 
 .board-wrap { padding: 0 16px 64px; }
+.board-title { margin: 0 0 4px; font-family: var(--f-display); font-weight: 400; font-size: clamp(30px, 4vw, 44px); text-transform: uppercase; }
+.board.single { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 14px; }
+
+/* Fixture: las casillas de la ronda */
+.ring-wrap { padding: 0 16px 64px; }
+.ring-wrap[hidden] { display: none; }
+.ring-wrap .muted { margin: 0 0 16px; }
+.ring { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 12px; counter-reset: slot; }
+.slot-card {
+  position: relative; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; text-align: left;
+  background: var(--paper-2); color: var(--ink); border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); font: inherit;
+}
+.slot-card.free { border-style: dashed; box-shadow: none; background: transparent; }
+.slot-card.mine { box-shadow: 4px 4px 0 var(--gold); }
+.slot-num { font-family: var(--f-label); font-size: 18px; letter-spacing: 2px; color: var(--red); }
+.slot-who { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.slot-who b { font-size: 16px; }
+.slot-rivals { font-size: 13px; color: var(--ink-soft); }
+.slot-x, .chip-x {
+  border: 0; background: var(--red); color: var(--paper); font-weight: 800; cursor: pointer; line-height: 1;
+}
+.slot-x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; }
+.chip-x { width: 20px; height: 20px; margin-left: 4px; font-size: 11px; border-radius: 50%; }
+
+/* Elegir casilla dentro de la tarjeta */
+.slot-pick { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; align-self: stretch; }
+.slot-pick-team { display: flex; align-items: center; gap: 10px; color: var(--paper); font-size: 18px; }
+.slot-pick-team .btn-link { color: var(--mist); }
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; max-height: 52vh; overflow-y: auto; padding: 4px; }
+.slot-grid .slot-card.free { background: rgba(212,175,55,.12); color: var(--paper); border-color: var(--gold); cursor: pointer; }
+.slot-grid .slot-card.free .slot-rivals, .slot-grid .slot-card.free .muted { color: var(--mist); }
+.slot-grid .slot-card.free:hover { background: rgba(212,175,55,.35); }
+.slot-grid .slot-card.disabled { opacity: .55; }
 .board-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
 .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 20px; }
 .tier { display: flex; flex-direction: column; gap: 10px; }
@@ -475,6 +509,16 @@ button.match:hover { box-shadow: 4px 4px 0 var(--gold); }
 .standings tr.q td.pos { background: var(--gold); font-weight: 800; }
 .standings tr.q3 td.pos { background: var(--mist); font-weight: 800; }
 .group-games { display: flex; flex-direction: column; gap: 8px; }
+.groups:has(.league) { grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); }
+.standings tr.zone-direct td.pos { background: var(--gold); font-weight: 800; }
+.standings tr.zone-po td.pos { background: var(--mist); font-weight: 800; }
+.standings tr.zone-out td { opacity: .6; }
+.zones-legend { margin: 0; display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; font-weight: 700; }
+.zone-key { display: inline-flex; align-items: center; gap: 6px; }
+.zone-key i { width: 14px; height: 14px; border: 2px solid var(--ink); }
+.zone-key.zone-direct i { background: var(--gold); }
+.zone-key.zone-po i { background: var(--mist); }
+.zone-key.zone-out i { background: transparent; }
 .group-games .match { box-shadow: none; border-width: 2px; padding: 6px 8px; }
 .group-games .avatar-xs { width: 24px; height: 24px; }
 

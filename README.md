@@ -1,6 +1,6 @@
 # El Supremo Papá del FIFA 2026
 
-Web del torneo de apertura de la nueva casa (domingo 18 de octubre, 18:00 hrs).
+Web del torneo de despedida de la casa de Paraguay 1024 (domingo 18 de octubre, 18:00 hrs).
 
 Los 16 convocados aparecen de incógnito. Cada uno recibe un link personal (`/?c=CODIGO`). Al entrar, elige **Asistiré** o **No asistiré**. Su card gira y se revela para todos: a color con el sello CONFIRMADO y confeti, o en blanco y negro y tachada con RECHAZADO. La página se actualiza sola cada 15 s.
 
@@ -16,7 +16,7 @@ navegador ──► Cloudflare Pages ──┬── /*      ──► web/ (est
 | Ruta | Qué hay |
 |------|---------|
 | `web/` | Sitio: `index.html`, `sorteo.html`, `torneo.html`, `styles.css`, `app.js`, `sorteo.js`, `torneo.js`, `common.js`, `effects.js` (animaciones GSAP), `img/NN.jpg` |
-| `lib/tournament.js` | Formato del torneo, grupos, tablas y llave (sin dependencias) |
+| `lib/tournament.js` | Formato del torneo: liga por casillas, tabla, playoff y llave (sin dependencias) |
 | `functions/api/[[path]].js` | La API (Pages Function) |
 | `schema.sql` | Tabla `guests` |
 | `scripts/guests.json` | Lista de invitados |
@@ -33,13 +33,15 @@ navegador ──► Cloudflare Pages ──┬── /*      ──► web/ (est
 | `POST` | `/api/admin/reset` | `{ "num": 3 }` + header `x-admin-token`. Vuelve un invitado a pendiente |
 | `POST` | `/api/admin/check` | Valida el código del organizador (header `x-admin-token`) |
 
-| `GET`  | `/api/draw` | Sorteo: equipos, quién tiene cada uno, la fila de pateadores y a quién le toca |
-| `POST` | `/api/draw/start` | (organizador) Arma la fila al azar con los confirmados |
+| `GET`  | `/api/draw` | Sorteo: equipos, quién tiene cada uno, la fila, las casillas del fixture y a quién le toca |
+| `POST` | `/api/draw/start` | (organizador) Arma la fila al azar y una casilla vacía por confirmado |
 | `POST` | `/api/draw/shoot` | `{ "zone": "tl", "expect": 3 }`. Patea el primero de la fila |
-| `POST` | `/api/draw/pick` | `{ "team": "rma", "expect": 3 }`. El que hizo el gol elige equipo |
+| `POST` | `/api/draw/pick` | `{ "team": "rma", "slot": 4, "expect": 3 }`. El que hizo el gol elige equipo y casilla |
+| `POST` | `/api/admin/draw/absent` | `{ "num": 7 }`. El que no vino sale de la fila |
+| `POST` | `/api/admin/draw/remove-slot` | `{ "slot": 5 }`. Saca una casilla vacía que sobra |
 | `POST` | `/api/admin/draw/reset` | Borra el sorteo |
-| `GET`  | `/api/tournament` | Grupos con tabla, partidos, llave y campeón |
-| `POST` | `/api/admin/tournament/start` | Arma grupos y fixture con los que tienen equipo |
+| `GET`  | `/api/tournament` | Tabla de la liga, partidos, playoff, llave y campeón |
+| `POST` | `/api/admin/tournament/start` | Arma la liga con las casillas del sorteo |
 | `POST` | `/api/admin/tournament/result` | `{ "id": 5, "hg": 2, "ag": 1, "pen_winner"?: 3 }`. Con `null` borra el resultado |
 | `POST` | `/api/admin/tournament/reset` | Borra el torneo |
 
@@ -49,21 +51,17 @@ Los códigos nunca llegan al front público: solo se resuelven en la Function.
 
 ## Sorteo y torneo
 
-**`/sorteo` · La tanda de penales.** Entran los que confirmaron. El organizador toca "Empezar sorteo" y se sortea el orden de la fila. Patea el primero: elige uno de los 5 lugares del arco y el arquero se tira al azar (la lógica está en `lib/penalty.js`; cualquier lugar es gol 2 de cada 3 veces). Con gol elige el equipo que quiera de los que quedan; si se la atajan, pega en el palo o se va afuera, pasa al final de la fila. Cada penal y cada elección se anima a pantalla completa en todas las pantallas. Patea el organizador desde su panel o el propio jugador desde su celular, si abrió `/sorteo` con su link (`/sorteo?c=CODIGO`, o el botón "Ir al sorteo" de su invitación). Los 16 equipos están en `TEAMS`, en `functions/api/[[path]].js`.
+**`/sorteo` · La tanda de penales.** Entran los que confirmaron. El organizador toca "Empezar sorteo": se sortea el orden de la fila y se crea el fixture, una ronda con una casilla vacía por jugador (cada casilla juega contra la de al lado de cada lado; la última contra la primera). Patea el primero: elige uno de los 5 lugares del arco y el arquero se tira al azar (`lib/penalty.js`; cualquier lugar es gol 2 de cada 3 veces). Con gol elige uno de los 16 equipos de FC 27 que quedan y después su casilla, viendo contra quién jugaría; si falla, pasa al final de la fila. Cada penal y cada elección se anima en una tarjeta centrada en todas las pantallas. Patea el organizador o el propio jugador desde su celular, si abrió `/sorteo` con su link. Si alguien llega tarde se agrega una casilla al final; si alguien no vino, el organizador lo saca de la fila (✕) y saca la casilla vacía que sobra. Los equipos están en `TEAMS`, en `functions/api/[[path]].js`.
 
-**`/torneo`.** Pensado para una sola consola y unas 3 horas: ningún formato pasa de 15 partidos (~10 minutos cada uno con tiempos de 4 minutos). Con el sorteo terminado, el organizador toca "Armar grupos" y el formato sale de cuántos jugadores tienen equipo (`lib/tournament.js`):
+**`/torneo`.** Una sola consola, tiempos de 3 minutos (~8 minutos por partido). El organizador toca "Armar la liga" y los partidos salen de las casillas (`lib/tournament.js`):
 
 | Jugadores | Formato | Partidos |
 |-----------|---------|----------|
-| 4-5 | 1 grupo todos contra todos; final entre el 1º y el 2º | 7 / 11 |
-| 6 | 2 grupos de 3; los 2 primeros a semis | 9 |
-| 7-8 | 2 grupos (4+3 / 4+4); los 2 primeros a semis | 12 / 15 |
-| 9-10 | 3 grupos; los ganadores y el mejor 2º a semis | 12 / 15 |
-| 11 | 4 grupos (3+3+3+2, el de 2 juega ida y vuelta); los ganadores a semis | 14 |
-| 12 | 4 grupos de 3; los ganadores a semis | 15 |
-| 13-16 | Eliminación directa; los mejores bombos pasan directo a cuartos | 12 a 15 |
+| 4-7 | Todos contra todos; final entre el 1º y el 2º | 7 a 22 |
+| 8-9 | Liga de 2 partidos c/u; 1º y 2º a semis; playoff 3º vs 6º y 4º vs 5º | 13 / 14 |
+| 10-16 | Liga de 2 partidos c/u; 1º a 6º a cuartos; playoff 7º vs 10º y 8º vs 9º | 19 a 25 |
 
-Los grupos se reparten con un equipo de cada bombo y los partidos se intercalan para que nadie juegue dos seguidos. "Ahora se juega" muestra el partido actual y los dos que siguen. Cuando terminan los grupos se arma la llave sola. En los partidos a todo o nada, si hay empate se elige quién ganó por penales.
+Cuartos: 1º vs ganador de 8º-9º, 2º vs ganador de 7º-10º, 3º vs 6º, 4º vs 5º. Tabla: puntos, resultado entre ellos, diferencia de gol, goles a favor y al azar. Playoff y llave a un partido; si hay empate, se elige quién ganó por penales. Los partidos de la liga se intercalan para que nadie juegue dos seguidos y "Ahora se juega" muestra el actual y los dos que siguen.
 
 Para manejarlo, en `/sorteo` o `/torneo` tocá "🔑 Soy el organizador" e ingresá el código del organizador (el `ADMIN_TOKEN`). Se valida en el momento y queda guardado en ese dispositivo hasta tocar "Salir". Así cualquiera puede manejar el sorteo desde su celular si le pasás el código.
 

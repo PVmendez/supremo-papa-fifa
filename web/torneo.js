@@ -1,11 +1,12 @@
-// El torneo: tabla de cada grupo, próximos partidos, llave y campeón. El organizador carga los resultados acá.
+// El torneo: liga por casillas, playoff, llave y campeón. El organizador carga los resultados acá.
 (function () {
   "use strict";
 
   var S = window.Supremo, FX = window.Effects;
   var el = S.el;
 
-  var STAGE_LABEL = { qf: "Cuartos", sf: "Semifinales", final: "Final" };
+  var STAGE_LABEL = { league: "Liga", po: "Playoff", qf: "Cuartos", sf: "Semifinales", final: "Final" };
+  var ZONE_LABEL = { direct: "A la llave", po: "Playoff", out: "Afuera" };
   var state = null;
   var championShown = null;
 
@@ -24,20 +25,16 @@
   function describe(fmt, n) {
     if (!fmt) return "Hacen falta al menos 4 jugadores con equipo para armar el torneo.";
     var text;
-    if (fmt.direct) {
-      var byes = fmt.sizes.filter(function (x) { return x === 1; }).length;
-      text = "eliminación directa a un partido" + (byes ? "; los " + byes + " mejores bombos pasan directo a cuartos" : "");
+    if (fmt.kind === "rr") {
+      text = "todos contra todos y final entre el 1º y el 2º";
     } else {
-      var groups = fmt.groups === 1 ? "un grupo todos contra todos" : fmt.groups + " grupos todos contra todos" +
-        (fmt.twoLegs ? " (el de 2 juega ida y vuelta)" : "");
-      var pass = fmt.groups === 1 ? "el 1º y el 2º juegan la final"
-        : (fmt.perGroup === 2 ? "los 2 primeros de cada grupo" : "los ganadores de cada grupo") +
-          (fmt.best ? " y el mejor " + (fmt.best.pos + 1) + "º" : "") +
-          " pasan a " + (fmt.knockout === 8 ? "cuartos" : "semis");
-      text = groups + "; " + pass;
+      var ko = fmt.direct === 6 ? "cuartos" : "semis";
+      var po = fmt.playoff.map(function (p) { return p[0] + "º vs " + p[1] + "º"; }).join(" y ");
+      text = "liga de 2 partidos cada uno (contra las casillas de al lado); del 1º al " + fmt.direct + "º a " + ko +
+        ", playoff " + po + " por los dos lugares que faltan";
     }
-    return (n ? n + " jugadores: " : "") + text + ". Si hay empate en un partido a todo o nada, penales. " +
-      fmt.matches + " partidos en una consola, unas " + duration(fmt.minutes) + ".";
+    return (n ? n + " jugadores: " : "") + text + ". En playoff y llave, si empatan, penales. " +
+      fmt.matches + " partidos en una consola, unas " + duration(fmt.minutes) + " con tiempos de 3 minutos.";
   }
 
   /* ---------- Piezas ---------- */
@@ -73,61 +70,45 @@
 
   /* ---------- Secciones ---------- */
 
-  function renderGroups() {
-    var fmt = state.format;
-    var frag = document.createDocumentFragment();
-    $("groups-title").textContent = fmt.direct ? "Primera ronda" : "Grupos";
-    if (fmt.direct) {
-      // Cruces directos: cada "grupo" es un partido a todo o nada o un pase directo.
-      var card = el("div", "group");
-      var games = el("div", "group-games");
-      state.groups.forEach(function (g) {
-        if (g.table.length === 1) {
-          var bye = el("div", "match bye");
-          bye.appendChild(side(g.table[0].num, "home"));
-          bye.appendChild(el("span", "score", "→"));
-          bye.appendChild(el("span", "side away muted", "Pasa directo a cuartos"));
-          games.appendChild(bye);
-        } else {
-          state.matches.filter(function (m) { return m.stage === "group" && m.grp === g.name; })
-            .forEach(function (m) { games.appendChild(matchEl(m)); });
-        }
-      });
-      card.appendChild(games);
-      frag.appendChild(card);
-      $("groups").replaceChildren(frag);
-      $("groups-block").hidden = false;
-      return;
-    }
-    state.groups.forEach(function (g) {
-      var card = el("div", "group");
-      card.appendChild(el("h3", null, "Grupo " + g.name));
-      var table = el("table", "standings");
-      var head = el("tr");
-      ["", "Jugador", "PJ", "DG", "Pts"].forEach(function (h) { head.appendChild(el("th", null, h)); });
-      var thead = el("thead"); thead.appendChild(head); table.appendChild(thead);
-      var tbody = el("tbody");
-      g.table.forEach(function (r, i) {
-        var p = player(r.num);
-        var tr = el("tr", i < fmt.perGroup ? "q" : fmt.best && i === fmt.best.pos ? "q3" : "");
-        tr.appendChild(el("td", "pos", String(i + 1)));
-        var who = el("td", "who");
-        if (p) { who.appendChild(S.avatar(p, "avatar-xs")); who.appendChild(el("span", null, p.name)); if (p.team) who.appendChild(S.crest(p.team, "sm")); }
-        tr.appendChild(who);
-        tr.appendChild(el("td", null, String(r.pj)));
-        tr.appendChild(el("td", null, (r.dg > 0 ? "+" : "") + r.dg));
-        tr.appendChild(el("td", "pts", String(r.pts)));
-        tbody.appendChild(tr);
-      });
-      table.appendChild(tbody);
-      card.appendChild(table);
-      var games = el("div", "group-games");
-      state.matches.filter(function (m) { return m.stage === "group" && m.grp === g.name; })
-        .forEach(function (m) { games.appendChild(matchEl(m)); });
-      card.appendChild(games);
-      frag.appendChild(card);
+  function renderLeague() {
+    var card = el("div", "group league");
+    var table = el("table", "standings");
+    var head = el("tr");
+    ["", "Jugador", "PJ", "DG", "Pts"].forEach(function (h) { head.appendChild(el("th", null, h)); });
+    var thead = el("thead"); thead.appendChild(head); table.appendChild(thead);
+    var tbody = el("tbody");
+    state.table.forEach(function (r, i) {
+      var p = player(r.num);
+      var tr = el("tr", "zone-" + r.zone);
+      tr.title = ZONE_LABEL[r.zone];
+      tr.appendChild(el("td", "pos", String(i + 1)));
+      var who = el("td", "who");
+      if (p) { who.appendChild(S.avatar(p, "avatar-xs")); who.appendChild(el("span", null, p.name)); if (p.team) who.appendChild(S.crest(p.team, "sm")); }
+      tr.appendChild(who);
+      tr.appendChild(el("td", null, String(r.pj)));
+      tr.appendChild(el("td", null, (r.dg > 0 ? "+" : "") + r.dg));
+      tr.appendChild(el("td", "pts", String(r.pts)));
+      tbody.appendChild(tr);
     });
-    $("groups").replaceChildren(frag);
+    table.appendChild(tbody);
+    card.appendChild(table);
+    var legend = el("p", "zones-legend");
+    ["direct", "po", "out"].forEach(function (z) {
+      if (z === "po" && !state.format.playoff.length) return;
+      var item = el("span", "zone-key zone-" + z);
+      item.appendChild(el("i"));
+      item.appendChild(document.createTextNode(z === "direct" ? (state.format.kind === "rr" ? "A la final" : "Directo a " + (state.format.direct === 6 ? "cuartos" : "semis")) : ZONE_LABEL[z]));
+      legend.appendChild(item);
+    });
+    card.appendChild(legend);
+
+    var fixture = el("div", "group");
+    fixture.appendChild(el("h3", null, "Partidos de la liga"));
+    var games = el("div", "group-games");
+    state.matches.filter(function (m) { return m.stage === "league"; }).forEach(function (m) { games.appendChild(matchEl(m)); });
+    fixture.appendChild(games);
+
+    $("groups").replaceChildren(card, fixture);
     $("groups-block").hidden = false;
   }
 
@@ -135,14 +116,14 @@
     var pending = state.matches.filter(function (m) { return m.hg == null && m.home != null && m.away != null; });
     var block = $("next-block");
     if (!pending.length) { block.hidden = true; return; }
-    var frag = document.createDocumentFragment();
     // Una sola consola: el que se juega ahora y los dos que siguen, para que vayan agarrando el joystick.
     var playedCount = state.matches.filter(function (m) { return m.hg != null; }).length;
     var total = state.format ? state.format.matches : state.matches.length;
+    var frag = document.createDocumentFragment();
     pending.slice(0, 3).forEach(function (m, i) {
       var wrap = el("div", "next-match" + (i === 0 ? " now" : ""));
-      var where = m.stage === "group" ? (state.format.direct ? "Primera ronda" : "Grupo " + m.grp) : STAGE_LABEL[m.stage];
-      var label = (i === 0 ? "Ahora" : i === 1 ? "Después" : "Se preparan") + " · " + where + " · Partido " + (playedCount + i + 1) + " de " + total;
+      var label = (i === 0 ? "Ahora" : i === 1 ? "Después" : "Se preparan") + " · " + STAGE_LABEL[m.stage] +
+        " · Partido " + (playedCount + i + 1) + " de " + total;
       wrap.appendChild(el("span", "next-label", label));
       wrap.appendChild(matchEl(m));
       frag.appendChild(wrap);
@@ -152,10 +133,10 @@
   }
 
   function renderBracket() {
-    var ko = state.matches.filter(function (m) { return m.stage !== "group"; });
+    var ko = state.matches.filter(function (m) { return m.stage !== "league"; });
     if (!ko.length) { $("bracket-block").hidden = true; return; }
     var frag = document.createDocumentFragment();
-    ["qf", "sf", "final"].forEach(function (stage) {
+    ["po", "qf", "sf", "final"].forEach(function (stage) {
       var games = ko.filter(function (m) { return m.stage === stage; }).sort(function (a, b) { return a.slot - b.slot; });
       if (!games.length) return;
       var col = el("div", "round round-" + stage);
@@ -193,12 +174,13 @@
   function render(next) {
     var celebrate = state !== null;   // en la primera carga no hay festejo, solo si el campeón aparece en vivo
     state = next;
-    var n = (state.groups || []).reduce(function (k, g) { return k + g.table.length; }, 0) || state.eligible;
+    var n = state.table ? state.table.length : state.eligible;
     $("format").textContent = describe(state.format, n);
     var started = state.status !== "none";
     $("empty").textContent = started ? "" :
+      state.emptySlots ? "Hay casillas vacías en el fixture: sacalas en el sorteo antes de armar la liga." :
       state.eligible >= state.minPlayers
-        ? "Ya hay " + state.eligible + " jugadores con equipo. Falta que el organizador arme los grupos."
+        ? "Ya hay " + state.eligible + " jugadores con equipo y casilla. Falta que el organizador arme la liga."
         : "El torneo se arma después del sorteo de equipos.";
     $("btn-start").hidden = started;
     if (!started) {
@@ -209,7 +191,7 @@
     renderChampion(celebrate);
     renderNext();
     renderBracket();
-    renderGroups();
+    renderLeague();
   }
 
   function load() {
@@ -237,7 +219,7 @@
     if (m.home == null || m.away == null) { msg.textContent = S.errorText({ code: "match_not_ready" }); return; }
     current = m;
     var h = player(m.home), a = player(m.away);
-    $("score-title").textContent = m.stage === "group" ? "Grupo " + m.grp : STAGE_LABEL[m.stage];
+    $("score-title").textContent = STAGE_LABEL[m.stage];
     $("home-name").textContent = h ? h.name : "Local";
     $("away-name").textContent = a ? a.name : "Visitante";
     $("pen-home-name").textContent = h ? h.name : "";
@@ -253,8 +235,7 @@
   }
 
   function syncPens() {
-    var decisive = current && (current.stage !== "group" || (state.format && state.format.direct));
-    var tie = decisive && $("hg").value !== "" && $("hg").value === $("ag").value;
+    var tie = current && current.stage !== "league" && $("hg").value !== "" && $("hg").value === $("ag").value;
     $("pens").hidden = !tie;
   }
 
@@ -276,10 +257,10 @@
     // Al entrar o salir se repinta todo: los partidos pasan a ser botones para cargar resultados (o dejan de serlo).
     gate = S.adminGate(function (on) { adminOn = on; if (state) render(state); });
     $("btn-start").addEventListener("click", function () {
-      if (window.confirm("¿Armar los grupos con los que tienen equipo? Después el sorteo queda cerrado.")) adminRun($("btn-start"), "/admin/tournament/start");
+      if (window.confirm("¿Armar la liga con las casillas del sorteo? Después el sorteo queda cerrado.")) adminRun($("btn-start"), "/admin/tournament/start");
     });
     $("btn-reset").addEventListener("click", function () {
-      if (window.confirm("¿Borrar grupos, partidos y resultados?")) adminRun($("btn-reset"), "/admin/tournament/reset");
+      if (window.confirm("¿Borrar la liga, los partidos y los resultados?")) adminRun($("btn-reset"), "/admin/tournament/reset");
     });
     $("hg").addEventListener("input", syncPens);
     $("ag").addEventListener("input", syncPens);

@@ -26,7 +26,7 @@
     <h1>La tanda<br>de penales</h1>
     <ul class="rules">
       <li><b>Se sortea el orden de la fila</b> entre los que confirmaron. Patea el primero.</li>
-      <li><b>Elegís uno de los 5 lugares del arco.</b> Si es gol, elegís el equipo que quieras de los que quedan.</li>
+      <li><b>Elegís uno de los 5 lugares del arco.</b> Si es gol, elegís el equipo que quieras de los que quedan y tu casilla del fixture: jugás contra las dos casillas de al lado.</li>
       <li><b>Si te la atajan, pega en el palo o se va afuera,</b> volvés al final de la fila. Abajo y al medio el arquero ataja si adivina; arriba ataja menos, pero podés pegar en el palo.</li>
       <li><b>Cuando te toca, pateás desde tu celular</b> con tu link personal. Si no, patea el organizador por vos.</li>
     </ul>
@@ -63,8 +63,17 @@
 
   <section class="board-wrap">
     <div class="board-inner">
-      <div class="board" id="board"></div>
+      <h2 class="board-title">Los 16 equipos de FC 27</h2>
+      <div class="board single" id="board"></div>
       <div class="waiting" id="waiting"></div>
+    </div>
+  </section>
+
+  <section class="ring-wrap" id="ring-wrap" hidden>
+    <div class="board-inner">
+      <h2 class="board-title">El fixture</h2>
+      <p class="muted" id="ring-note"></p>
+      <div class="ring" id="ring"></div>
     </div>
   </section>
 </main>

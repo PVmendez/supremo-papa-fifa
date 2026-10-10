@@ -18,17 +18,11 @@ CREATE TABLE IF NOT EXISTS picks (
   updated_at TEXT
 );
 
--- Torneo: grupo de cada jugador y todos los partidos (grupos y llave).
--- En la llave, home/away quedan NULL hasta que se definen los cruces; pen_winner solo si empataron.
-CREATE TABLE IF NOT EXISTS tgroups (
-  num INTEGER PRIMARY KEY,
-  grp TEXT    NOT NULL
-);
-
+-- Torneo: todos los partidos (liga, playoff y llave). En el playoff y la llave, home/away quedan NULL
+-- hasta que se definen los cruces; pen_winner solo si empataron.
 CREATE TABLE IF NOT EXISTS matches (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  stage      TEXT    NOT NULL CHECK (stage IN ('group', 'qf', 'sf', 'final')),
-  grp        TEXT,
+  stage      TEXT    NOT NULL CHECK (stage IN ('league', 'po', 'qf', 'sf', 'final')),
   slot       INTEGER NOT NULL DEFAULT 0,
   ord        INTEGER NOT NULL DEFAULT 0,
   console    INTEGER,
@@ -55,4 +49,11 @@ CREATE TABLE IF NOT EXISTS penalty_log (
   result TEXT,
   team   TEXT,
   at     TEXT    NOT NULL
+);
+
+-- Casillas del fixture: una ronda; cada casilla juega contra la anterior y la siguiente (la última con la primera).
+-- num se completa cuando el jugador elige casilla en el sorteo.
+CREATE TABLE IF NOT EXISTS slots (
+  slot INTEGER PRIMARY KEY,
+  num  INTEGER UNIQUE
 );
