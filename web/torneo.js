@@ -280,10 +280,12 @@
     // Al entrar o salir se repinta todo: los partidos pasan a ser botones para cargar resultados (o dejan de serlo).
     gate = S.adminGate(function (on) { adminOn = on; if (state) render(state); });
     $("btn-start").addEventListener("click", function () {
-      if (window.confirm("¿Armar la liga con las casillas del sorteo? Después el sorteo queda cerrado.")) adminRun($("btn-start"), "/admin/tournament/start");
+      S.ask({ title: "¿Armamos la liga?", text: "Los partidos salen de las casillas del sorteo. Después el sorteo queda cerrado.", ok: "Armar" })
+        .then(function (yes) { if (yes) adminRun($("btn-start"), "/admin/tournament/start"); });
     });
     $("btn-reset").addEventListener("click", function () {
-      if (window.confirm("¿Borrar la liga, los partidos y los resultados?")) adminRun($("btn-reset"), "/admin/tournament/reset");
+      S.ask({ title: "¿Borrar el torneo?", text: "Se borran la liga, los partidos y los resultados.", ok: "Borrar", danger: true })
+        .then(function (yes) { if (yes) adminRun($("btn-reset"), "/admin/tournament/reset"); });
     });
     $("hg").addEventListener("input", syncPens);
     $("ag").addEventListener("input", syncPens);

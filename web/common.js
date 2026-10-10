@@ -295,8 +295,53 @@
     return scroll;
   }
 
+  /**
+   * Diálogo propio en lugar de confirm()/alert() del navegador. Devuelve una promesa con true si aceptó.
+   *   opts: { title, text, media (nodo opcional, p. ej. un escudo), ok, cancel (false = solo aceptar), danger }
+   */
+  var askOpen = null;
+  function ask(opts) {
+    if (typeof opts === "string") opts = { text: opts };
+    if (askOpen) askOpen(false);
+    return new Promise(function (resolve) {
+      var dlg = el("dialog", "ask-dialog" + (opts.danger ? " danger" : ""));
+      dlg.setAttribute("aria-labelledby", "ask-title");
+      if (opts.media) { var m = el("div", "ask-media"); m.appendChild(opts.media); dlg.appendChild(m); }
+      dlg.appendChild(el("h3", null, opts.title || "¿Seguro?")).id = "ask-title";
+      if (opts.text) dlg.appendChild(el("p", "ask-text", opts.text));
+      var row = el("div", "ask-actions");
+      var yes = el("button", "btn btn-yes btn-sm", opts.ok || "Sí");
+      yes.type = "button";
+      row.appendChild(yes);
+      if (opts.cancel !== false) {
+        var no = el("button", "btn btn-no btn-sm", opts.cancel || "Cancelar");
+        no.type = "button";
+        no.addEventListener("click", function () { done(false); });
+        row.appendChild(no);
+      }
+      dlg.appendChild(row);
+      var finished = false;
+      function done(v) {
+        if (finished) return;
+        finished = true;
+        askOpen = null;
+        if (dlg.open) dlg.close();
+        dlg.remove();
+        resolve(v);
+      }
+      askOpen = done;
+      yes.addEventListener("click", function () { done(true); });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); done(opts.cancel === false); });
+      dlg.addEventListener("click", function (e) { if (e.target === dlg) done(opts.cancel === false); });
+      document.body.appendChild(dlg);
+      if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+      (opts.danger && no ? no : yes).focus();
+    });
+  }
+  function notice(text, title) { return ask({ title: title || "Ojo", text: text, ok: "Entendido", cancel: false }); }
+
   window.Supremo = {
-    zigzag: zigzag,
+    zigzag: zigzag, ask: ask, notice: notice,
     api: api, adminPost: adminPost, getToken: function () { return memToken; }, setToken: setToken,
     adminGate: adminGate, el: el, crest: crest, avatar: avatar, errorText: errorText,
     pollMs: 4000

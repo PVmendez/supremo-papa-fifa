@@ -162,13 +162,17 @@
         if (canPlace) {
           extra.onClick = function () {
             var who = personOf(state.current);
-            var msg = "¿" + who.name + " en la casilla " + (i + 1) + "?" + (state.slots.length >= 8 ? " Juega contra " + rivalsText(i) + "." : "");
-            if (window.confirm(msg)) adminAction("/admin/draw/place", { slot: sl.slot, expect: state.current });
+            S.ask({
+              title: who.name + " a la casilla " + (i + 1),
+              text: state.slots.length >= 3 ? "Juega contra " + rivalsText(i) + "." : null,
+              ok: "Ubicar"
+            }).then(function (yes) { if (yes) adminAction("/admin/draw/place", { slot: sl.slot, expect: state.current }); });
           };
         }
         if (removable && !sl.pending) {
           extra.onRemove = function () {
-            if (window.confirm("¿Sacar la casilla " + (i + 1) + "? Las de al lado pasan a jugar entre ellas.")) adminAction("/admin/draw/remove-slot", { slot: sl.slot });
+            S.ask({ title: "¿Sacar la casilla " + (i + 1) + "?", text: "Las de al lado pasan a jugar entre ellas.", ok: "Sacar", danger: true })
+              .then(function (yes) { if (yes) adminAction("/admin/draw/remove-slot", { slot: sl.slot }); });
           };
         }
         return extra;
@@ -227,7 +231,8 @@
           x.type = "button";
           x.title = "No vino";
           x.addEventListener("click", function () {
-            if (window.confirm("¿" + p.name + " no vino? Sale de la fila (queda como que no asiste).")) adminAction("/admin/draw/absent", { num: p.num });
+            S.ask({ title: "¿" + p.name + " no vino?", text: "Sale de la fila y queda como que no asiste.", ok: "Sacar", danger: true })
+              .then(function (yes) { if (yes) adminAction("/admin/draw/absent", { num: p.num }); });
           });
           chip.appendChild(x);
         }
@@ -337,7 +342,8 @@
         b.appendChild(S.crest(t));
         b.appendChild(el("span", null, t.name));
         b.addEventListener("click", function () {
-          if (window.confirm("¿Elegir " + t.name + "?")) send("/draw/pick", { team: t.id, expect: state.current });
+          S.ask({ title: "¿" + t.name + "?", media: S.crest(t, "lg"), text: "Una vez elegido no se cambia.", ok: "Elegir" })
+            .then(function (yes) { if (yes) send("/draw/pick", { team: t.id, expect: state.current }); });
         });
         grid.appendChild(b);
       });
@@ -380,7 +386,7 @@
       .catch(function (err) {
         var text = S.errorText(err);
         if (adminOn) { msg.textContent = text; if (err.status === 401) gate.invalid(); }
-        else window.alert(text);
+        else S.notice(text);
         playKey = "";
         if (overlay.classList.contains("control")) Array.prototype.forEach.call(overlayStage.querySelectorAll("button"), function (b) { b.disabled = false; });
         load();
@@ -647,10 +653,12 @@
       if (state && !busy) renderAll();
     });
     $("btn-start").addEventListener("click", function () {
-      if (window.confirm("¿Arrancar el sorteo con los que confirmaron? Se sortea el orden de la fila.")) adminRun($("btn-start"), "/draw/start");
+      S.ask({ title: "¿Arrancamos el sorteo?", text: "Entran los que confirmaron y se sortea el orden de la fila.", ok: "Arrancar" })
+        .then(function (yes) { if (yes) adminRun($("btn-start"), "/draw/start"); });
     });
     $("btn-reset").addEventListener("click", function () {
-      if (window.confirm("¿Borrar todo el sorteo y volver a empezar?")) adminRun($("btn-reset"), "/admin/draw/reset");
+      S.ask({ title: "¿Reiniciar el sorteo?", text: "Se borran los equipos y las casillas elegidas, y se vuelve a empezar.", ok: "Reiniciar", danger: true })
+        .then(function (yes) { if (yes) adminRun($("btn-reset"), "/admin/draw/reset"); });
     });
   }
 
