@@ -54,15 +54,17 @@ Los códigos nunca llegan al front público: solo se resuelven en la Function.
 
 **`/sorteo` · La tanda de penales.** Entran los que confirmaron. El organizador toca "Empezar sorteo": se sortea el orden de la fila y se crea el fixture, una ronda con una casilla vacía por jugador (cada casilla juega contra la de al lado de cada lado; la última contra la primera). Patea el primero: elige uno de los 5 lugares del arco y el arquero se tira al azar (`lib/penalty.js`; cualquier lugar es gol 2 de cada 3 veces). Con gol elige uno de los 16 equipos de FC 27 que quedan; si falla, pasa al final de la fila. Cuando todos tienen equipo, se eligen las casillas en el mismo orden en que eligieron equipo: el fixture sube arriba de la página y el organizador toca la casilla libre que dice cada uno; en todas las pantallas se resalta dónde quedó. Cada penal y cada elección se anima en una tarjeta centrada en todas las pantallas. Patea el organizador o el propio jugador desde su celular, si abrió `/sorteo` con su link. Si alguien llega tarde se agrega una casilla al final: patea, elige equipo y elige casilla último; si alguien no vino, el organizador lo saca de la fila (✕) y saca la casilla vacía que sobra. Los equipos están en `TEAMS`, en `functions/api/[[path]].js`.
 
-**`/torneo`.** Una sola consola, tiempos de 3 minutos (~8 minutos por partido). El organizador toca "Armar la liga" y los partidos salen de las casillas (`lib/tournament.js`):
+**Sorteo de salas.** Se juega en dos consolas a la vez: Sala 1 y Sala 2. Cuando todos tienen equipo y casilla, el organizador toca "Sortear salas" en `/sorteo` (o "Armar la liga" en `/torneo`): se arman los partidos de la liga, se reparten en turnos de dos partidos sin jugadores repetidos (y evitando que alguien juegue dos turnos seguidos) y en cada turno se sortea qué partido va a cada sala. El sorteo se anima en todas las pantallas. Los cruces de playoff y llave también se reparten de a dos por turno, con la sala sorteada. En la base, `matches.ord` es el turno y `matches.console` la sala.
 
-| Jugadores | Formato | Partidos |
-|-----------|---------|----------|
-| 4-7 | Todos contra todos; final entre el 1º y el 2º | 7 a 22 |
-| 8-9 | Liga de 2 partidos c/u; 1º y 2º a semis; playoff 3º vs 6º y 4º vs 5º | 13 / 14 |
-| 10-12 | Liga de 2 partidos c/u; 1º a 6º a cuartos; playoff 7º vs 10º y 8º vs 9º | 19 a 21 |
+**`/torneo`.** Tiempos de 3 minutos (~8 minutos por partido). "Ahora se juega" muestra, para cada sala, el partido actual y el que sigue; si alguien todavía está jugando en la otra sala, avisa que hay que esperarlo. Los partidos salen de las casillas (`lib/tournament.js`):
 
-Cuartos: 1º vs ganador de 8º-9º, 2º vs ganador de 7º-10º, 3º vs 6º, 4º vs 5º. Tabla: puntos, resultado entre ellos, diferencia de gol, goles a favor y al azar. Playoff y llave a un partido; si hay empate, se elige quién ganó por penales. Los partidos de la liga se intercalan para que nadie juegue dos seguidos y "Ahora se juega" muestra el actual y los dos que siguen.
+| Jugadores | Formato | Partidos | Turnos (2 salas) |
+|-----------|---------|----------|------------------|
+| 4-7 | Todos contra todos; final entre el 1º y el 2º | 7 a 22 | 4 a 12 |
+| 8-9 | Liga de 2 partidos c/u; 1º y 2º a semis; playoff 3º vs 6º y 4º vs 5º | 13 / 14 | 7 / 8 |
+| 10-12 | Liga de 2 partidos c/u; 1º a 6º a cuartos; playoff 7º vs 10º y 8º vs 9º | 19 a 21 | 10 / 11 / 11 |
+
+Cuartos: 1º vs ganador de 8º-9º, 2º vs ganador de 7º-10º, 3º vs 6º, 4º vs 5º. Tabla: puntos, resultado entre ellos, diferencia de gol, goles a favor y al azar. Playoff y llave a un partido; si hay empate, se elige quién ganó por penales. Con 12 jugadores son 11 turnos: cerca de 1 h 30.
 
 Para manejarlo, en `/sorteo` o `/torneo` tocá "🔑 Soy el organizador" e ingresá el código del organizador (el `ADMIN_TOKEN`). Se valida en el momento y queda guardado en ese dispositivo hasta tocar "Salir". Así cualquiera puede manejar el sorteo desde su celular si le pasás el código.
 

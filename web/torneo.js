@@ -21,7 +21,7 @@
     return h ? h + " h" + (m ? " " + m : "") : m + " min";
   }
 
-  /** El formato en una frase, con la cuenta de partidos para una sola consola. */
+  /** El formato en una frase, con la cuenta de turnos para las dos salas. */
   function describe(fmt, n) {
     if (!fmt) return "Hacen falta al menos 4 jugadores con equipo para armar el torneo.";
     var text;
@@ -34,7 +34,8 @@
         ", playoff " + po + " por los dos lugares que faltan";
     }
     return (n ? n + " jugadores: " : "") + text + ". En playoff y llave, si empatan, penales. " +
-      fmt.matches + " partidos en una consola, unas " + duration(fmt.minutes) + " con tiempos de 3 minutos.";
+      fmt.matches + " partidos en dos consolas a la vez (Sala 1 y Sala 2): " + fmt.turns + " turnos, unas " +
+      duration(fmt.minutes) + " con tiempos de 3 minutos.";
   }
 
   /* ---------- Piezas ---------- */
@@ -60,6 +61,7 @@
       if (hw) box.classList.add("home-won");
       if (aw) box.classList.add("away-won");
     }
+    if (m.room) box.appendChild(el("span", "room-tag room-" + m.room, "Sala " + m.room));
     box.appendChild(side(m.home, "home"));
     var score = el("span", "score", played ? m.hg + " – " + m.ag : "vs");
     if (played && m.pen_winner) score.appendChild(el("small", null, "pen."));
@@ -105,7 +107,11 @@
     var fixture = el("div", "group");
     fixture.appendChild(el("h3", null, "Partidos de la liga"));
     var games = el("div", "group-games");
-    state.matches.filter(function (m) { return m.stage === "league"; }).forEach(function (m) { games.appendChild(matchEl(m)); });
+    var lastTurn = null;
+    state.matches.filter(function (m) { return m.stage === "league"; }).forEach(function (m) {
+      if (m.ord !== lastTurn) { games.appendChild(el("h4", "turn-label", "Turno " + m.ord)); lastTurn = m.ord; }
+      games.appendChild(matchEl(m));
+    });
     fixture.appendChild(games);
 
     var parts = [card, fixture];
@@ -139,17 +145,29 @@
     var pending = state.matches.filter(function (m) { return m.hg == null && m.home != null && m.away != null; });
     var block = $("next-block");
     if (!pending.length) { block.hidden = true; return; }
-    // Una sola consola: el que se juega ahora y los dos que siguen, para que vayan agarrando el joystick.
-    var playedCount = state.matches.filter(function (m) { return m.hg != null; }).length;
-    var total = state.format ? state.format.matches : state.matches.length;
+    // Dos consolas: en cada sala, el partido que se juega ahora y el que sigue.
+    // Si alguien del partido de una sala todavía está jugando en la otra, se avisa que espere.
     var frag = document.createDocumentFragment();
-    pending.slice(0, 3).forEach(function (m, i) {
-      var wrap = el("div", "next-match" + (i === 0 ? " now" : ""));
-      var label = (i === 0 ? "Ahora" : i === 1 ? "Después" : "Se preparan") + " · " + STAGE_LABEL[m.stage] +
-        " · Partido " + (playedCount + i + 1) + " de " + total;
-      wrap.appendChild(el("span", "next-label", label));
-      wrap.appendChild(matchEl(m));
-      frag.appendChild(wrap);
+    var rooms = [1, 2];
+    var nowBy = {};
+    rooms.forEach(function (r) { nowBy[r] = pending.filter(function (m) { return (m.room || 1) === r; })[0] || null; });
+    rooms.forEach(function (r) {
+      var mine = pending.filter(function (m) { return (m.room || 1) === r; });
+      var col = el("div", "next-room");
+      col.appendChild(el("h3", "next-room-title room-" + r, "Sala " + r));
+      if (!mine.length) { col.appendChild(el("p", "muted", "Sin partidos por ahora.")); frag.appendChild(col); return; }
+      mine.slice(0, 2).forEach(function (m, i) {
+        var other = nowBy[r === 1 ? 2 : 1];
+        var waits = i === 0 && other && other.ord < m.ord &&
+          [m.home, m.away].some(function (p) { return p === other.home || p === other.away; });
+        var wrap = el("div", "next-match" + (i === 0 ? " now" : ""));
+        var label = (i === 0 ? (waits ? "Espera a la Sala " + (r === 1 ? 2 : 1) : "Ahora") : "Después") +
+          " · " + STAGE_LABEL[m.stage] + " · Turno " + m.ord;
+        wrap.appendChild(el("span", "next-label", label));
+        wrap.appendChild(matchEl(m));
+        col.appendChild(wrap);
+      });
+      frag.appendChild(col);
     });
     $("next").replaceChildren(frag);
     block.hidden = false;
@@ -204,7 +222,7 @@
       state.emptySlots ? "Hay casillas vacías en el fixture: sacalas en el sorteo antes de armar la liga." :
       state.eligible >= state.minPlayers
         ? "Ya hay " + state.eligible + " jugadores con equipo y casilla. Falta que el organizador arme la liga."
-        : "El torneo se arma después del sorteo de equipos.";
+        : "El torneo se arma después del sorteo de equipos y de salas.";
     $("btn-start").hidden = started;
     if (!started) {
       ["groups-block", "next-block", "bracket-block"].forEach(function (id) { $(id).hidden = true; });
@@ -280,7 +298,7 @@
     // Al entrar o salir se repinta todo: los partidos pasan a ser botones para cargar resultados (o dejan de serlo).
     gate = S.adminGate(function (on) { adminOn = on; if (state) render(state); });
     $("btn-start").addEventListener("click", function () {
-      S.ask({ title: "¿Armamos la liga?", text: "Los partidos salen de las casillas del sorteo. Después el sorteo queda cerrado.", ok: "Armar" })
+      S.ask({ title: "¿Armamos la liga?", text: "Los partidos salen de las casillas del sorteo y a cada uno se le sortea la Sala 1 o la Sala 2. Después el sorteo queda cerrado.", ok: "Armar" })
         .then(function (yes) { if (yes) adminRun($("btn-start"), "/admin/tournament/start"); });
     });
     $("btn-reset").addEventListener("click", function () {

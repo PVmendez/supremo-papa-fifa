@@ -190,7 +190,9 @@
     if (state.phase === "idle") {
       turnBox.appendChild(el("p", "stage-idle", "Esperando que arranque el sorteo…"));
     } else if (state.phase === "done") {
-      turnBox.appendChild(el("p", "stage-idle", "Todos tienen equipo y casilla. ¡Que empiece el torneo!"));
+      turnBox.appendChild(el("p", "stage-idle", state.rooms && state.rooms.length
+        ? "Salas sorteadas. ¡Que empiece el torneo!"
+        : "Todos tienen equipo y casilla. Falta sortear las salas."));
     } else {
       var row = el("div", "turn-row");
       row.appendChild(S.avatar(cur, "avatar-lg"));
@@ -585,7 +587,89 @@
     setTimeout(function () { tile.classList.remove("just-drawn"); }, 6000);
   }
 
-  function renderAll() { trackPlacements(); renderTurn(); renderBoard(); renderRing(); renderPlay(); }
+  /* ---------- Sorteo de salas ---------- */
+
+  var roomsKey = "";
+
+  function playerOf(num) { return state.players.find(function (p) { return p.num === num; }) || personOf(num); }
+
+  function roomSide(num) {
+    var p = playerOf(num);
+    var s = el("span", "room-side");
+    s.appendChild(S.avatar(p, "avatar-xs"));
+    s.appendChild(el("b", null, p.name));
+    var t = teamOf(p.team);
+    if (t) s.appendChild(S.crest(t, "sm"));
+    return s;
+  }
+
+  function roomMatch(m) {
+    var row = el("div", "room-match room-" + m.room);
+    row.appendChild(el("span", "room-tag", "Sala " + m.room));
+    row.appendChild(roomSide(m.home));
+    row.appendChild(el("span", "room-vs", "vs"));
+    row.appendChild(roomSide(m.away));
+    return row;
+  }
+
+  /** Los partidos de la liga agrupados por turno, con la sala que le tocó a cada uno. */
+  function roomsByTurn() {
+    var turns = [];
+    (state.rooms || []).forEach(function (m) {
+      var t = turns[turns.length - 1];
+      if (!t || t.turn !== m.turn) { t = { turn: m.turn, games: [] }; turns.push(t); }
+      t.games.push(m);
+    });
+    return turns;
+  }
+
+  function renderRooms() {
+    $("btn-rooms").hidden = !adminOn || state.phase !== "done" || !!(state.rooms && state.rooms.length);
+    var key = JSON.stringify(state.rooms || []);
+    if (key === roomsKey) return;
+    roomsKey = key;
+    var wrap = $("rooms-wrap");
+    wrap.hidden = !(state.rooms && state.rooms.length);
+    if (wrap.hidden) return;
+    var ring = $("ring-wrap");
+    if (ring.parentNode && wrap.previousElementSibling !== ring) ring.parentNode.insertBefore(wrap, ring.nextSibling);
+    var frag = document.createDocumentFragment();
+    roomsByTurn().forEach(function (t) {
+      var box = el("div", "room-turn");
+      box.appendChild(el("h3", null, "Turno " + t.turn));
+      t.games.forEach(function (m) { box.appendChild(roomMatch(m)); });
+      frag.appendChild(box);
+    });
+    $("rooms").replaceChildren(frag);
+  }
+
+  /** La animación del sorteo de salas: aparecen los turnos y a cada partido le cae su sala. */
+  function playRooms(done) {
+    overlayStage.replaceChildren();
+    var box = el("div", "start-box rooms-reveal");
+    box.appendChild(el("p", "shot-result gol", "¡Sorteo de salas!"));
+    var list = el("div", "rooms rooms-compact");
+    var tags = [];
+    roomsByTurn().forEach(function (t) {
+      var turn = el("div", "room-turn");
+      turn.appendChild(el("h3", null, "Turno " + t.turn));
+      t.games.forEach(function (m) {
+        var row = roomMatch(m);
+        tags.push(row.querySelector(".room-tag"));
+        turn.appendChild(row);
+      });
+      list.appendChild(turn);
+    });
+    box.appendChild(list);
+    overlayStage.appendChild(box);
+    gsap.timeline({ onComplete: done })
+      .from(box.firstChild, { scale: 2, opacity: 0, duration: 0.4, ease: "back.out(2)" })
+      .from(list.children, { y: 20, opacity: 0, duration: 0.3, stagger: 0.12 })
+      .from(tags, { scale: 2.4, rotation: -18, opacity: 0, duration: 0.3, ease: "back.out(2.4)", stagger: 0.12 }, "-=0.2")
+      .add(function () { if (FX) FX.popConfetti(box.firstChild, { particles: 40, streamers: 10 }); });
+  }
+
+  function renderAll() { trackPlacements(); renderTurn(); renderBoard(); renderRing(); renderRooms(); renderPlay(); }
 
   function adminAction(path, body) {
     $("admin-msg").textContent = "";
@@ -598,7 +682,16 @@
   function apply(next) {
     var ev = next.last;
     var isNew = ev && shownEvent !== null && ev.id !== shownEvent;
+    // Las salas recién sorteadas se animan en todas las pantallas (no en la primera carga).
+    var roomsNew = state !== null && !(state.rooms && state.rooms.length) && !!(next.rooms && next.rooms.length);
     state = next;
+    if (roomsNew && animate && !busy && !isNew) {
+      busy = true;
+      closeControl();
+      openOverlay();
+      playRooms(function () { closeOverlay(4000, function () { busy = false; renderAll(); }); });
+      return;
+    }
     if (shownEvent === null || !isNew) {           // primera carga o nada nuevo: sin animación
       if (shownEvent === null) shownEvent = ev ? ev.id : 0;
       if (!busy) renderAll();
@@ -655,6 +748,19 @@
     $("btn-start").addEventListener("click", function () {
       S.ask({ title: "¿Arrancamos el sorteo?", text: "Entran los que confirmaron y se sortea el orden de la fila.", ok: "Arrancar" })
         .then(function (yes) { if (yes) adminRun($("btn-start"), "/draw/start"); });
+    });
+    $("btn-rooms").addEventListener("click", function () {
+      S.ask({ title: "¿Sorteamos las salas?", text: "Se arman los partidos de la liga y a cada uno le toca la Sala 1 o la Sala 2. Después las casillas quedan cerradas.", ok: "Sortear" })
+        .then(function (yes) {
+          if (!yes) return;
+          var btn = $("btn-rooms");
+          btn.disabled = true;
+          $("admin-msg").textContent = "";
+          S.adminPost("/admin/tournament/start").then(load).catch(function (err) {
+            $("admin-msg").textContent = S.errorText(err);
+            if (err.status === 401) gate.invalid();
+          }).then(function () { btn.disabled = false; });
+        });
     });
     $("btn-reset").addEventListener("click", function () {
       S.ask({ title: "¿Reiniciar el sorteo?", text: "Se borran los equipos y las casillas elegidas, y se vuelve a empezar.", ok: "Reiniciar", danger: true })

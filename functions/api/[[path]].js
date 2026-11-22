@@ -29,7 +29,7 @@
 
 import { shoot, ZONES } from "../../lib/penalty.js";
 import {
-  MIN_PLAYERS, formatFor, leagueMatches, standings, zoneOf, resolveKnockout, winnerOf, isPlayed,
+  MIN_PLAYERS, ROOMS, formatFor, knockoutPlan, leagueMatches, scheduleTurns, standings, zoneOf, resolveKnockout, winnerOf, isPlayed,
 } from "../../lib/tournament.js";
 
 const VALID = new Set(["yes", "no"]);
@@ -107,12 +107,13 @@ function randomIndex(n) {
 }
 
 async function drawState(db) {
-  const [guests, picks, queue, slots, last] = await db.batch([
+  const [guests, picks, queue, slots, last, leagueRows] = await db.batch([
     db.prepare("SELECT num, name, photo FROM guests WHERE status = 'yes' ORDER BY num"),
     db.prepare("SELECT num, team, ord FROM picks ORDER BY ord"),
     db.prepare("SELECT num, pos FROM penalty_queue ORDER BY pos"),
     db.prepare("SELECT slot, num FROM slots ORDER BY slot"),
     db.prepare("SELECT id, kind, num, zone, dive, result, team FROM penalty_log ORDER BY id DESC LIMIT 1"),
+    db.prepare("SELECT ord AS turn, console AS room, home, away FROM matches WHERE stage = 'league' ORDER BY ord, console"),
   ]);
   const person = (g) => ({ num: g.num, name: g.name, photo: g.photo ?? null });
   const confirmed = new Map(guests.results.map((g) => [g.num, g]));
@@ -150,6 +151,8 @@ async function drawState(db) {
     waiting: started ? [] : waiting.map(person),
     slots: ring, toPlace,
     phase, current: current ?? null, last: ev,
+    // El sorteo de salas: los partidos de la liga con su turno y su sala, cuando ya se armó.
+    rooms: leagueRows.results,
   };
 }
 
@@ -279,7 +282,7 @@ async function tournamentData(db) {
   const [people, slotRows, matchRows] = await db.batch([
     db.prepare("SELECT g.num, g.name, g.photo, p.team FROM guests g JOIN picks p ON p.num = g.num WHERE g.status = 'yes'"),
     db.prepare("SELECT slot, num FROM slots ORDER BY slot"),
-    db.prepare("SELECT id, stage, slot, ord, home, away, hg, ag, pen_winner FROM matches ORDER BY ord, id"),
+    db.prepare("SELECT id, stage, slot, ord, console AS room, home, away, hg, ag, pen_winner FROM matches ORDER BY ord, console, id"),
   ]);
   const byNum = new Map(people.results.filter((p) => teamById.has(p.team))
     .map((p) => [p.num, { num: p.num, name: p.name, photo: p.photo ?? null, team: teamById.get(p.team) }]));
@@ -317,9 +320,11 @@ async function startTournament(db) {
   const fmt = formatFor(ring.length);
   if (!fmt) return { error: "invalid_player_count" };
   const now = new Date().toISOString();
-  await db.batch(leagueMatches(ring, fmt.kind).map((m) => db
-    .prepare("INSERT INTO matches (stage, slot, ord, console, home, away, updated_at) VALUES ('league', 0, ?1, 1, ?2, ?3, ?4)")
-    .bind(m.ord, m.home, m.away, now)));
+  // Sorteo de salas: los partidos se reparten en turnos (uno por sala) y en cada turno se sortea la sala.
+  // ord es el número de turno y console la sala (1 o 2).
+  await db.batch(scheduleTurns(leagueMatches(ring, fmt.kind), randomIndex).map((m) => db
+    .prepare("INSERT INTO matches (stage, slot, ord, console, home, away, updated_at) VALUES ('league', 0, ?1, ?2, ?3, ?4, ?5)")
+    .bind(m.turn, m.room, m.home, m.away, now)));
   return { ok: true };
 }
 
@@ -336,15 +341,28 @@ async function advanceKnockout(db) {
     const fmt = formatFor(nums.length);
     const table = standings(nums, league);
     const find = (stage, slot) => matches.find((m) => m.stage === stage && m.slot === slot) || null;
-    let ord = matches.reduce((m, x) => Math.max(m, x.ord), 0);
     const now = new Date().toISOString();
     const stmts = [];
+    // Turno y sala de cada cruce: cada ronda en turnos de a ROOMS partidos, con la sala sorteada en cada turno.
+    const leagueTurns = league.reduce((m, x) => Math.max(m, x.ord), 0);
+    const where = new Map();
+    let turn = leagueTurns;
+    for (const round of knockoutPlan(fmt)) {
+      for (let i = 0; i < round.pairs.length; i += ROOMS) {
+        turn++;
+        const chunk = round.pairs.slice(i, i + ROOMS).map((_, k) => i + k);
+        const rooms = Array.from({ length: ROOMS }, (_, k) => k + 1);
+        for (let k = rooms.length - 1; k > 0; k--) { const j = randomIndex(k + 1); [rooms[k], rooms[j]] = [rooms[j], rooms[k]]; }
+        chunk.forEach((slot, k) => where.set(round.stage + ":" + slot, { turn, room: rooms[k] }));
+      }
+    }
     for (const want of resolveKnockout(fmt, table, find)) {
       const cur = find(want.stage, want.slot);
       if (!cur) {
+        const at = where.get(want.stage + ":" + want.slot);
         stmts.push(db
-          .prepare("INSERT INTO matches (stage, slot, ord, console, home, away, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6)")
-          .bind(want.stage, want.slot, ++ord, want.home, want.away, now));
+          .prepare("INSERT INTO matches (stage, slot, ord, console, home, away, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)")
+          .bind(want.stage, want.slot, at.turn, at.room, want.home, want.away, now));
       } else if (cur.home !== want.home || cur.away !== want.away) {
         stmts.push(db
           .prepare("UPDATE matches SET home = ?1, away = ?2, hg = NULL, ag = NULL, pen_winner = NULL, updated_at = ?3 WHERE id = ?4")
