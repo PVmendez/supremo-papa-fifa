@@ -55,7 +55,7 @@
     if (me && me.num === g.num) card.classList.add("is-me");
 
     var frame = el("div", "frame");
-    frame.style.setProperty("--slot", SLOT_COLORS[(g.num - 1) % SLOT_COLORS.length]);
+    frame.style.setProperty("--slot", SLOT_COLORS[((g.pos || g.num) - 1) % SLOT_COLORS.length]);
     frame.appendChild(el("div", "pitch"));
 
     if (status !== "pending" && g.photo) {
@@ -70,7 +70,7 @@
     }
 
     var badge = el("div", "badge");
-    badge.appendChild(el("b", null, "#" + g.num));
+    badge.appendChild(el("b", null, "#" + (g.pos || g.num)));
     badge.appendChild(el("small", null, "FIFA 26"));
     frame.appendChild(badge);
 
@@ -78,7 +78,7 @@
     if (status === "no") frame.appendChild(el("div", "stamp no", "Rechazado"));
 
     card.appendChild(frame);
-    card.appendChild(el("h3", "card-name", status === "pending" ? "Convocado #" + g.num : g.name));
+    card.appendChild(el("h3", "card-name", status === "pending" ? "Convocado #" + (g.pos || g.num) : g.name));
     if (status === "yes" && g.team) {
       var team = el("p", "card-team");
       if (window.Supremo) team.appendChild(window.Supremo.crest(g.team, "sm"));
@@ -100,24 +100,40 @@
   var confirmedShown = 0;
   var fmtCounter = function (n) { return n + " / " + TOTAL + " confirmados"; };
 
+  var order = [];            // números de invitado en el orden en que se muestran
+  var orderKey = "";
+
   function render(guests) {
     var byNum = {};
     guests.forEach(function (g) { byNum[g.num] = g; });
     var confirmed = 0;
 
+    // Las cards salen de la lista que manda la API (los números pueden tener huecos).
+    // Sin respuesta todavía, se muestran TOTAL cards vacías.
+    var nums = guests.length
+      ? guests.map(function (g) { return g.num; }).sort(function (a, b) { return a - b; })
+      : Array.apply(null, { length: TOTAL }).map(function (_, i) { return i + 1; });
+    var key = nums.join(",");
+    if (key !== orderKey) { order = nums; orderKey = key; firstRender = true; }
+    TOTAL = order.length;
+    var pos = {};
+    order.forEach(function (num, i) { pos[num] = i + 1; });
+    var withPos = function (g) { g.pos = pos[g.num]; return g; };
+
     if (firstRender) {
       var frag = document.createDocumentFragment();
-      for (var n = 1; n <= TOTAL; n++) {
-        var g = byNum[n] || { num: n, status: "pending" };
+      order.forEach(function (n) {
+        var g = withPos(byNum[n] || { num: n, status: "pending" });
         if (g.status === "yes") confirmed++;
         cardEls[n] = buildCard(g);
         frag.appendChild(cardEls[n]);
-      }
+      });
       grid.replaceChildren(frag);
       if (FX) FX.dealCards(Array.prototype.slice.call(grid.children));
     } else {
-      for (var m = 1; m <= TOTAL; m++) {
-        var gg = byNum[m] || { num: m, status: "pending" };
+      for (var i = 0; i < order.length; i++) {
+        var m = order[i];
+        var gg = withPos(byNum[m] || { num: m, status: "pending" });
         if (gg.status === "yes") confirmed++;
         var prev = lastStatus[m] || "pending";
         var isMeNow = !!(me && me.num === m);
@@ -134,7 +150,8 @@
     if (FX) FX.countTo(counter, confirmedShown, confirmed, fmtCounter);
     else counter.textContent = fmtCounter(confirmed);
     confirmedShown = confirmed;
-    for (var k = 1; k <= TOTAL; k++) {
+    for (var j = 0; j < order.length; j++) {
+      var k = order[j];
       lastStatus[k] = (byNum[k] && byNum[k].status) || "pending";
       lastTeam[k] = (byNum[k] && byNum[k].team && byNum[k].team.id) || null;
     }

@@ -147,7 +147,7 @@
     empty_slots: "Hay casillas vacías en el fixture: sacalas en el sorteo.",
     groups_already_built: "La liga ya está armada.",
     tournament_started: "El torneo ya arrancó: el sorteo está cerrado.",
-    invalid_player_count: "Hacen falta entre 4 y 16 jugadores con equipo.",
+    invalid_player_count: "Hacen falta entre 4 y 12 jugadores con equipo.",
     knockout_started: "La llave ya arrancó: los resultados de la liga quedan fijos.",
     pen_winner_required: "Empate en la llave: elegí quién ganó por penales.",
     invalid_score: "Resultado inválido.",

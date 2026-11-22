@@ -2,7 +2,7 @@
 
 Web del torneo de despedida de la casa de Paraguay 1024 (domingo 29 de noviembre, 18:00 hrs).
 
-Los 16 convocados aparecen de incógnito. Cada uno recibe un link personal (`/?c=CODIGO`). Al entrar, elige **Asistiré** o **No asistiré**. Su card gira y se revela para todos: a color con el sello CONFIRMADO y confeti, o en blanco y negro y tachada con RECHAZADO. La página se actualiza sola cada 15 s.
+Los 12 convocados aparecen de incógnito. Cada uno recibe un link personal (`/?c=CODIGO`). Al entrar, elige **Asistiré** o **No asistiré**. Su card gira y se revela para todos: a color con el sello CONFIRMADO y confeti, o en blanco y negro y tachada con RECHAZADO. La página se actualiza sola cada 15 s.
 
 ## Stack
 
@@ -60,7 +60,7 @@ Los códigos nunca llegan al front público: solo se resuelven en la Function.
 |-----------|---------|----------|
 | 4-7 | Todos contra todos; final entre el 1º y el 2º | 7 a 22 |
 | 8-9 | Liga de 2 partidos c/u; 1º y 2º a semis; playoff 3º vs 6º y 4º vs 5º | 13 / 14 |
-| 10-16 | Liga de 2 partidos c/u; 1º a 6º a cuartos; playoff 7º vs 10º y 8º vs 9º | 19 a 25 |
+| 10-12 | Liga de 2 partidos c/u; 1º a 6º a cuartos; playoff 7º vs 10º y 8º vs 9º | 19 a 21 |
 
 Cuartos: 1º vs ganador de 8º-9º, 2º vs ganador de 7º-10º, 3º vs 6º, 4º vs 5º. Tabla: puntos, resultado entre ellos, diferencia de gol, goles a favor y al azar. Playoff y llave a un partido; si hay empate, se elige quién ganó por penales. Los partidos de la liga se intercalan para que nadie juegue dos seguidos y "Ahora se juega" muestra el actual y los dos que siguen.
 
@@ -71,7 +71,7 @@ Para manejarlo, en `/sorteo` o `/torneo` tocá "🔑 Soy el organizador" e ingre
 ```bash
 npm install
 npm run db:init:local
-npm run seed:local          # imprime los 16 links a http://localhost:8788/?c=...
+npm run seed:local          # imprime los 12 links a http://localhost:8788/?c=...
 echo 'ADMIN_TOKEN="algo-local"' > .dev.vars
 npm run dev                 # http://localhost:8788
 ```
@@ -106,10 +106,10 @@ Para publicar cambios: `npm run deploy`.
 
 ## Tareas comunes
 
-**Agregar una ilustración que faltaba** (Jairo #6, Cristian #7, Ezequiel #8, Pichu #16):
-1. Guardala como `web/img/06.jpg` (vertical, fondo blanco, ~600 px de ancho).
-2. En `scripts/guests.json` cambiá `"photo": null` por `"photo": "img/06.jpg"`.
-3. `npm run deploy` y `SITE_URL=... npm run seed`. El seed conserva códigos y respuestas.
+**Cambiar la lista de convocados** (máximo 12):
+1. Editá `scripts/guests.json`. El `num` identifica a cada uno y puede tener huecos; en la web se muestran numerados en orden.
+2. Si es alguien nuevo, guardá su ilustración en `web/img/NN.jpg` (vertical, fondo blanco, ~600 px de ancho).
+3. `npm run deploy` y `SITE_URL=... npm run seed`. El seed conserva códigos y respuestas, y borra de la base a los que ya no están en la lista.
 
 **Resetear una respuesta:**
 ```bash
@@ -120,7 +120,7 @@ curl -X POST https://supremo-papa-fifa.pages.dev/api/admin/reset \
 
 ## Límites del plan gratuito
 
-Pages Functions comparte el límite de Workers (100.000 requests por día) y D1 permite 5 millones de filas leídas y 100.000 escritas por día. Cada actualización de la página lee 16 filas, así que incluso con 50 personas mirando la página durante horas queda muy por debajo.
+Pages Functions comparte el límite de Workers (100.000 requests por día) y D1 permite 5 millones de filas leídas y 100.000 escritas por día. Cada actualización de la página lee 12 filas, así que incluso con 50 personas mirando la página durante horas queda muy por debajo.
 
 ## Notas
 

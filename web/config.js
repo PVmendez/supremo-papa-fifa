@@ -2,5 +2,5 @@
 window.APP_CONFIG = {
   apiBase: "/api",
   pollMs: 15000,
-  totalGuests: 16
+  totalGuests: 12
 };

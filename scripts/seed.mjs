@@ -3,8 +3,9 @@
 //   npm run seed:local                                   -> base local, links a http://localhost:8788
 //   SITE_URL=https://supremo-papa-fifa.pages.dev npm run seed   -> base en Cloudflare
 //
-// Es idempotente: si un invitado ya existe conserva su código y su respuesta,
-// solo actualiza nombre y foto. Los links quedan en scripts/links.local.txt (no se sube a git).
+// Es idempotente: si un invitado ya existe conserva su código y su respuesta y solo actualiza nombre y foto.
+// Los que ya no están en guests.json se borran de la base.
+// Los links quedan en scripts/links.local.txt (no se sube a git).
 
 import { readFile, writeFile, mkdtemp } from "node:fs/promises";
 import { randomInt } from "node:crypto";
@@ -43,6 +44,15 @@ const statements = guests.map((g) => {
   return `INSERT INTO guests (num, name, photo, code) VALUES (${g.num}, ${sql(g.name)}, ${sql(g.photo)}, ${sql(code)})
   ON CONFLICT(num) DO UPDATE SET name = excluded.name, photo = excluded.photo;`;
 });
+
+// Los que ya no están en guests.json salen de la base, con lo que tuvieran del sorteo.
+const keep = guests.map((g) => Number(g.num)).join(", ");
+statements.push(
+  `DELETE FROM picks WHERE num NOT IN (${keep});`,
+  `DELETE FROM penalty_queue WHERE num NOT IN (${keep});`,
+  `UPDATE slots SET num = NULL WHERE num IS NOT NULL AND num NOT IN (${keep});`,
+  `DELETE FROM guests WHERE num NOT IN (${keep});`,
+);
 
 const file = join(await mkdtemp(join(tmpdir(), "supremo-")), "seed.sql");
 await writeFile(file, statements.join("\n") + "\n");
