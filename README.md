@@ -1,6 +1,6 @@
 # El Supremo Papá del FIFA 2026
 
-Web del torneo de despedida de la casa de Paraguay 1024 (domingo 29 de noviembre, 18:00 hrs).
+Web del torneo de despedida (domingo 29 de noviembre, 18:00 hrs, Salto 997 apto. 207).
 
 Los 12 convocados aparecen de incógnito. Cada uno recibe un link personal (`/?c=CODIGO`). Al entrar, elige **Asistiré** o **No asistiré**. Su card gira y se revela para todos: a color con el sello CONFIRMADO y confeti, o en blanco y negro y tachada con RECHAZADO. La página se actualiza sola cada 15 s.
 
