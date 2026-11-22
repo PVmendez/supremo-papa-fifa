@@ -162,7 +162,7 @@
   function paintInvite() {
     inviteTitle.textContent = "Hola, " + me.name;
     if (me.status === "yes") {
-      inviteText.textContent = "Ya estás confirmado para el domingo 18. Si algo cambia, podés bajarte acá abajo.";
+      inviteText.textContent = "Ya estás confirmado para el domingo 29. Si algo cambia, podés bajarte acá abajo.";
     } else if (me.status === "no") {
       inviteText.textContent = "Marcaste que no venís. Si te liberás, todavía podés confirmar.";
     } else {
