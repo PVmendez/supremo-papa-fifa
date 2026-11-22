@@ -34,7 +34,7 @@ import {
 
 const VALID = new Set(["yes", "no"]);
 
-// Los 16 mejores equipos de clubes de FC 27 según EA (8 de 5 estrellas y 8 de 4 y media).
+// Los 12 equipos para elegir: los mejores clubes de FC 27 según EA (8 de 5 estrellas y 4 de 4 y media).
 // El escudo de cada uno está en web/img/escudos/<id>.png. Para cambiar un equipo basta con editar esta lista.
 const TEAMS = [
   { id: "rma", name: "Real Madrid",        colors: ["#FFFFFF", "#FEBE10"], logo: "img/escudos/rma.png" },
@@ -49,10 +49,6 @@ const TEAMS = [
   { id: "mun", name: "Manchester United",  colors: ["#DA291C", "#FBE122"], logo: "img/escudos/mun.png" },
   { id: "che", name: "Chelsea",            colors: ["#034694", "#FFFFFF"], logo: "img/escudos/che.png" },
   { id: "nap", name: "Napoli",             colors: ["#12A0D7", "#FFFFFF"], logo: "img/escudos/nap.png" },
-  { id: "bvb", name: "Borussia Dortmund",  colors: ["#FDE100", "#141414"], logo: "img/escudos/bvb.png" },
-  { id: "rom", name: "Roma",               colors: ["#8E1F2F", "#F0BC42"], logo: "img/escudos/rom.png" },
-  { id: "tot", name: "Tottenham",          colors: ["#FFFFFF", "#132257"], logo: "img/escudos/tot.png" },
-  { id: "avl", name: "Aston Villa",        colors: ["#670E36", "#95BFE5"], logo: "img/escudos/avl.png" },
 ];
 const TEAM_IDS = new Set(TEAMS.map((t) => t.id));
 
