@@ -15,6 +15,7 @@
 //                                        en su casilla, en el mismo orden en que eligieron equipo
 //   POST /api/admin/draw/absent       -> { num } el que no vino sale de la fila
 //   POST /api/admin/draw/remove-slot  -> { slot } saca una casilla vacía que sobra
+//   POST /api/admin/draw/auto         -> (pruebas) termina el sorteo al azar: equipos y casillas
 //   POST /api/admin/draw/reset        -> borra el sorteo
 // shoot y pick los puede hacer el organizador (x-admin-token) o el propio jugador con su código (x-guest-code).
 // expect es el número del jugador que la pantalla cree que está pateando, para no patear por otro.
@@ -167,7 +168,7 @@ function saveDraw(db, state) {
   ];
 }
 
-async function drawStart(db) {
+async function drawStart(db, { silent = false } = {}) {
   const state = await drawState(db);
   if (state.phase !== "idle") return { error: "already_started" };
   if (!state.waiting.length) return { error: "nobody_waiting" };
@@ -180,7 +181,7 @@ async function drawStart(db) {
     ...saveDraw(db, { queue: line, slots: [] }),
     db.prepare("DELETE FROM slots"),
     ...line.map((_, i) => db.prepare("INSERT INTO slots (slot, num) VALUES (?1, NULL)").bind(i + 1)),
-    logEvent(db, "start"),
+    ...(silent ? [] : [logEvent(db, "start")]),
   ]);
   return { ok: true };
 }
@@ -234,6 +235,52 @@ async function drawPlace(db, body) {
     ...saveDraw(db, state),
     db.prepare("UPDATE slots SET num = ?1 WHERE slot = ?2").bind(state.current, slot.slot),
   ]);
+  return { ok: true };
+}
+
+/**
+ * Sorteo al azar, para pruebas: termina el sorteo de una. Si no había empezado, lo empieza; a cada uno
+ * de la fila le da un equipo libre al azar y después ubica a todos los que no tienen casilla en casillas
+ * libres al azar. No toca a los que ya eligieron equipo o casilla.
+ */
+async function drawAuto(db) {
+  let state = await drawState(db);
+  if (state.phase === "idle") {
+    const started = await drawStart(db, { silent: true });
+    if (started.error) return started;
+    state = await drawState(db);
+  }
+  if (state.phase === "done") return { error: "draw_done" };
+
+  const shuffle = (list) => {
+    const a = list.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = randomIndex(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  };
+  // El que acaba de hacer un gol elige primero; después la fila en su orden.
+  const line = state.queue.map((p) => p.num);
+  if (state.phase === "pick" && state.current != null) line.sort((a, b) => (a === state.current ? -1 : b === state.current ? 1 : 0));
+  const taken = new Set(state.players.map((p) => p.team));
+  const freeTeams = shuffle(TEAMS.map((t) => t.id).filter((id) => !taken.has(id)));
+  if (freeTeams.length < line.length) return { error: "not_enough_teams" };
+
+  const now = new Date().toISOString();
+  let ord = state.players.reduce((m, p) => Math.max(m, p.ord), 0);
+  const stmts = [...saveDraw(db, state), db.prepare("DELETE FROM penalty_queue")];
+  line.forEach((num, i) => {
+    stmts.push(
+      db.prepare("DELETE FROM picks WHERE num = ?1").bind(num),
+      db.prepare("INSERT INTO picks (num, team, ord, updated_at) VALUES (?1, ?2, ?3, ?4)").bind(num, freeTeams[i], ++ord, now),
+      db.prepare("UPDATE slots SET num = NULL WHERE num = ?1").bind(num),
+    );
+  });
+
+  // Casillas: los que no tienen, en el orden en que eligieron equipo, a casillas libres al azar.
+  const unplaced = [...state.toPlace, ...line];
+  const freeSlots = shuffle(state.slots.filter((r) => r.num == null).map((r) => r.slot));
+  if (freeSlots.length < unplaced.length) return { error: "not_enough_slots" };
+  unplaced.forEach((num, i) => stmts.push(db.prepare("UPDATE slots SET num = ?1 WHERE slot = ?2").bind(num, freeSlots[i])));
+  await db.batch(stmts);
   return { ok: true };
 }
 
@@ -462,6 +509,7 @@ export async function onRequest({ request, env }) {
         else if (path === "/admin/draw/place") result = await drawPlace(db, body);
         else if (path === "/admin/draw/absent") result = await drawAbsent(db, body);
         else if (path === "/admin/draw/remove-slot") result = await drawRemoveSlot(db, body);
+        else if (path === "/admin/draw/auto") result = await drawAuto(db);
         else if (path === "/admin/draw/reset") {
           await db.batch([
             db.prepare("DELETE FROM picks"), db.prepare("DELETE FROM penalty_queue"), db.prepare("DELETE FROM slots"),

@@ -130,6 +130,9 @@
   var ERRORS = {
     unauthorized: "Código del organizador incorrecto.",
     nobody_waiting: "No hay confirmados sin equipo para el sorteo.",
+    draw_done: "El sorteo ya terminó: todos tienen equipo y casilla.",
+    not_enough_teams: "No quedan equipos libres para todos los de la fila.",
+    not_enough_slots: "No quedan casillas libres para todos.",
     already_started: "El sorteo ya arrancó.",
     must_pick: "Primero tiene que elegir equipo el que hizo el gol.",
     not_shooting: "Ahora no hay nadie para patear.",

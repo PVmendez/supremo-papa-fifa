@@ -40,6 +40,7 @@ navegador ──► Cloudflare Pages ──┬── /*      ──► web/ (est
 | `POST` | `/api/admin/draw/place` | `{ "slot": 4, "expect": 3 }`. Con todos los equipos elegidos, ubica en una casilla al que le toca |
 | `POST` | `/api/admin/draw/absent` | `{ "num": 7 }`. El que no vino sale de la fila |
 | `POST` | `/api/admin/draw/remove-slot` | `{ "slot": 5 }`. Saca una casilla vacía que sobra |
+| `POST` | `/api/admin/draw/auto` | (pruebas) Termina el sorteo al azar: equipos libres a los de la fila y casillas libres a los que no tienen |
 | `POST` | `/api/admin/draw/reset` | Borra el sorteo |
 | `GET`  | `/api/tournament` | Tabla de la liga, partidos, playoff, llave y campeón |
 | `POST` | `/api/admin/tournament/start` | Arma la liga con las casillas del sorteo |

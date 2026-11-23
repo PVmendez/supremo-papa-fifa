@@ -625,6 +625,7 @@
 
   function renderRooms() {
     $("btn-rooms").hidden = !adminOn || state.phase !== "done" || !!(state.rooms && state.rooms.length);
+    $("btn-auto").hidden = !adminOn || state.phase === "done" || !!(state.rooms && state.rooms.length);
     var key = JSON.stringify(state.rooms || []);
     if (key === roomsKey) return;
     roomsKey = key;
@@ -748,6 +749,19 @@
     $("btn-start").addEventListener("click", function () {
       S.ask({ title: "¿Arrancamos el sorteo?", text: "Entran los que confirmaron y se sortea el orden de la fila.", ok: "Arrancar" })
         .then(function (yes) { if (yes) adminRun($("btn-start"), "/draw/start"); });
+    });
+    $("btn-auto").addEventListener("click", function () {
+      S.ask({ title: "¿Sorteo al azar?", text: "Para probar: a cada uno de la fila le toca un equipo libre al azar y a todos los que no tienen casilla, una casilla libre al azar. Lo que ya se eligió no cambia.", ok: "Sortear al azar" })
+        .then(function (yes) {
+          if (!yes) return;
+          var btn = $("btn-auto");
+          btn.disabled = true;
+          $("admin-msg").textContent = "";
+          S.adminPost("/admin/draw/auto").then(load).catch(function (err) {
+            $("admin-msg").textContent = S.errorText(err);
+            if (err.status === 401) gate.invalid();
+          }).then(function () { btn.disabled = false; });
+        });
     });
     $("btn-rooms").addEventListener("click", function () {
       S.ask({ title: "¿Sorteamos las salas?", text: "Se arman los partidos de la liga y a cada uno le toca la Sala 1 o la Sala 2. Después las casillas quedan cerradas.", ok: "Sortear" })
