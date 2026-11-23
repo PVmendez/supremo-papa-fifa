@@ -150,19 +150,31 @@
    */
   function rivalsGrid(opts) {
     var nodes = opts.nodes, n = nodes.length;
+    var hl = opts.highlight != null && opts.highlight >= 0 ? opts.highlight : null;
+    var hlRivals = hl != null ? rivalIndexes(n, hl) : [];
     var grid = el("div", "rivals");
-    nodes.forEach(function (nd, i) {
-      var card = el("div", "rival-card" + (nd.mine ? " mine" : "") + (opts.highlight === i ? " flash" : ""));
+    var cards = nodes.map(function (nd, i) {
+      var cls = "rival-card" + (nd.mine ? " mine" : "") + (nd.free ? " free" : "") + (nd.onClick ? " pickable" : "") +
+        (hl === i ? " flash" : "") + (hlRivals.indexOf(i) >= 0 ? " rival-of" : "");
+      var card = el("div", cls);
       var head = el("div", "rival-head");
       head.appendChild(el("span", "rival-slot", nd.label));
       head.appendChild(avatar(nd.person, "avatar-sm"));
       head.appendChild(el("b", "rival-name", nd.person ? nd.person.name : "Casilla libre"));
       if (nd.team) head.appendChild(crest(nd.team, "sm"));
+      if (nd.onRemove) {
+        var x = el("button", "rival-x", "✕");
+        x.type = "button";
+        x.setAttribute("aria-label", "Sacar la casilla " + nd.label);
+        x.addEventListener("click", function (e) { e.stopPropagation(); nd.onRemove(); });
+        head.appendChild(x);
+      }
       card.appendChild(head);
       var list = el("ul", "rival-list");
-      rivalIndexes(n, i).forEach(function (j) {
+      var rivals = rivalIndexes(n, i);
+      rivals.forEach(function (j) {
         var other = nodes[j];
-        var li = el("li", "rival-row");
+        var li = el("li", "rival-row" + (hl === i || hl === j ? " lit" : ""));
         li.appendChild(el("span", "rival-slot small", other.label));
         li.appendChild(el("span", "rival-other", other.person ? other.person.name : "Casilla " + other.label + " (libre)"));
         var sc = opts.score ? opts.score(i, j) : null;
@@ -170,7 +182,20 @@
         list.appendChild(li);
       });
       card.appendChild(list);
+      if (nd.onClick) {
+        var pick = el("button", "rival-pick", "Ubicar acá");
+        pick.type = "button";
+        pick.addEventListener("click", nd.onClick);
+        // Al pasar por encima, se marcan las casillas contra las que jugaría.
+        var lightUp = function (on) { rivals.forEach(function (j) { cards[j].classList.toggle("rival-of", on); }); };
+        pick.addEventListener("mouseenter", function () { lightUp(true); });
+        pick.addEventListener("mouseleave", function () { lightUp(false); });
+        pick.addEventListener("focus", function () { lightUp(true); });
+        pick.addEventListener("blur", function () { lightUp(false); });
+        card.appendChild(pick);
+      }
       grid.appendChild(card);
+      return card;
     });
     return grid;
   }

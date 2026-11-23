@@ -98,7 +98,7 @@
     return state.slots.length - 1 >= state.players.length + state.queue.length;
   }
 
-  /** Las casillas como nodos del zigzag; extra(sl, i) agrega lo propio de cada uso (tocar, sacar). */
+  /** Las casillas como tarjetas; extra(sl, i) agrega lo propio de cada uso (tocar, sacar). */
   function zigzagNodes(extra) {
     return state.slots.map(function (sl, i) {
       var p = sl.num != null ? state.players.find(function (x) { return x.num === sl.num; }) : null;
@@ -142,18 +142,19 @@
     } else if (state.phase === "place") {
       var cur = personOf(state.current), t = teamOf((state.players.find(function (p) { return p.num === state.current; }) || {}).team);
       note = "Le toca elegir casilla a " + cur.name + (t ? " (" + t.name + ")" : "") + "." +
-        (adminOn ? " Tocá una casilla libre para ubicarlo. Abajo está contra quién juega cada casilla." : "");
+        (adminOn ? " Tocá \"Ubicar acá\" en una casilla libre; al pasar por encima se marcan sus rivales." : "");
     } else {
       note = state.slots.length < 8
         ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
-        : "Cada casilla juega contra las dos de al lado y contra la de enfrente (si son impares, contra las dos que están a media vuelta). Abajo está contra quién juega cada una. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
+        : "Cada casilla juega contra las dos de al lado y contra la de enfrente (si son impares, contra las dos que están a media vuelta). Cada tarjeta muestra contra quién juega esa casilla. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
     }
     $("ring-note").textContent = note;
     $("ring-note").classList.toggle("ring-flash", !!flash);
 
     var removable = adminOn && canRemoveSlot();
     var canPlace = adminOn && state.phase === "place";
-    ringBox.replaceChildren(S.zigzag({
+    // Las casillas en tarjetas: cada una con contra quién juega; en las libres, el botón para ubicar.
+    ringBox.replaceChildren(S.rivalsGrid({
       highlight: flash ? flash.index : null,
       nodes: zigzagNodes(function (sl, i) {
         if (sl.num != null) return {};
@@ -170,18 +171,13 @@
         }
         if (removable && !sl.pending) {
           extra.onRemove = function () {
-            S.ask({ title: "¿Sacar la casilla " + (i + 1) + "?", text: "Las de al lado pasan a jugar entre ellas.", ok: "Sacar", danger: true })
+            S.ask({ title: "¿Sacar la casilla " + (i + 1) + "?", text: "Las casillas se renumeran y cambian algunos rivales.", ok: "Sacar", danger: true })
               .then(function (yes) { if (yes) adminAction("/admin/draw/remove-slot", { slot: sl.slot }); });
           };
         }
         return extra;
       }),
     }));
-    // Con la ronda (8 o más), las tarjetas dejan claro contra quién juega cada casilla.
-    if (state.slots.length >= 8) {
-      ringBox.appendChild(el("h3", "rivals-title", "Contra quién juega cada casilla"));
-      ringBox.appendChild(S.rivalsGrid({ nodes: zigzagNodes(), highlight: flash ? flash.index : null }));
-    }
   }
 
   /* ---------- Turno y fila ---------- */

@@ -665,3 +665,12 @@ button.match:hover { box-shadow: 4px 4px 0 var(--gold); }
 .rival-score.draw { color: var(--ink); }
 .rivals-note { margin: 4px 0 0; }
 .rivals-title { margin: 22px 0 0; font-family: var(--f-display); font-weight: 400; font-size: 26px; text-transform: uppercase; }
+.rival-card.rival-of { outline: 4px solid var(--red); outline-offset: 2px; }
+.rival-card.free .rival-name { color: var(--ink-soft); }
+.rival-row.lit .rival-other { color: var(--red); }
+.rival-x { margin-left: 4px; min-width: 32px; min-height: 32px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); font-size: 16px; cursor: pointer; }
+.rival-pick {
+  min-height: 44px; margin-top: 2px; border: 3px solid var(--ink); background: var(--gold); color: var(--ink);
+  font-family: var(--f-label); font-size: 22px; letter-spacing: 1.5px; cursor: pointer;
+}
+.rival-pick:hover, .rival-pick:focus-visible { background: var(--ink); color: var(--gold); }
