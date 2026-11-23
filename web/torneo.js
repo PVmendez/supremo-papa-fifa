@@ -121,43 +121,29 @@
     $("groups-block").hidden = false;
   }
 
-  /** El fixture de la liga en zigzag, con el resultado sobre cada línea. */
+  /** La liga en tarjetas: cada casilla con contra quién juega y el resultado de cada partido. */
   function leagueMap() {
     var ring = state.ring, n = ring.length;
     var league = state.matches.filter(function (m) { return m.stage === "league"; });
-    var edges = ring.map(function (a, i) {
-      var b = ring[(i + 1) % n];
-      var m = league.find(function (x) { return (x.home === a && x.away === b) || (x.home === b && x.away === a); });
-      if (!m || m.hg == null) return { text: "vs" };
-      var mine = m.home === a ? [m.hg, m.ag] : [m.ag, m.hg];
-      return { text: mine[0] + " – " + mine[1], cls: "played" };
-    });
     var nodes = ring.map(function (num, i) {
       var p = player(num);
       return { label: String(i + 1), person: p, team: p && p.team, free: !p };
     });
     var box = el("div", "group league-map");
-    box.appendChild(el("h3", null, "El fixture"));
-    box.appendChild(S.zigzag({ nodes: nodes, edges: edges }));
-
-    // Los partidos "de enfrente": con un número par de casillas, cada una contra la que está a la mitad
-    // de la ronda; con impar, contra las dos que están a media vuelta.
-    var k = n % 2 === 0 ? n / 2 : (n - 1) / 2;
-    var count = n % 2 === 0 ? n / 2 : n;
-    var list = el("div", "chords");
-    list.appendChild(el("h4", "turn-label", n % 2 === 0 ? "Y contra la casilla de enfrente" : "Y contra las casillas a media vuelta"));
-    for (var i = 0; i < count; i++) {
-      var j = (i + k) % n, a = ring[i], b = ring[j];
-      var m = league.find(function (x) { return (x.home === a && x.away === b) || (x.home === b && x.away === a); });
-      var row = el("div", "chord");
-      row.appendChild(el("span", "chord-slots", (i + 1) + " vs " + (j + 1)));
-      var pa = player(a), pb = player(b);
-      row.appendChild(el("span", "chord-names", (pa ? pa.name : "Libre") + " – " + (pb ? pb.name : "Libre")));
-      var score = m && m.hg != null ? (m.home === a ? m.hg + " – " + m.ag : m.ag + " – " + m.hg) : "vs";
-      row.appendChild(el("span", "chord-score" + (score === "vs" ? "" : " played"), score));
-      list.appendChild(row);
-    }
-    box.appendChild(list);
+    box.appendChild(el("h3", null, "Contra quién juega cada uno"));
+    box.appendChild(el("p", "muted rivals-note", n % 2 === 0
+      ? "Cada casilla juega contra las dos de al lado y la de enfrente."
+      : "Cada casilla juega contra las dos de al lado y las dos que están a media vuelta."));
+    box.appendChild(S.rivalsGrid({
+      nodes: nodes,
+      score: function (i, j) {
+        var a = ring[i], b = ring[j];
+        var m = league.find(function (x) { return (x.home === a && x.away === b) || (x.home === b && x.away === a); });
+        if (!m || m.hg == null) return null;
+        var mine = m.home === a ? [m.hg, m.ag] : [m.ag, m.hg];
+        return { text: mine[0] + " – " + mine[1], cls: mine[0] > mine[1] ? "win" : mine[0] < mine[1] ? "loss" : "draw" };
+      },
+    }));
     return box;
   }
 

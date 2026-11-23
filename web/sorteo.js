@@ -84,8 +84,7 @@
     return -1;
   }
   function neighbors(i) {
-    var n = state.slots.length;
-    return n < 2 ? [] : n === 2 ? [state.slots[1 - i]] : [state.slots[(i - 1 + n) % n], state.slots[(i + 1) % n]];
+    return S.rivalIndexes(state.slots.length, i).map(function (j) { return state.slots[j]; });
   }
   function slotName(sl) {
     var p = sl.num != null ? personOf(sl.num) : null;
@@ -93,7 +92,7 @@
   }
   function rivalsText(i) {
     var r = neighbors(i).map(slotName);
-    return r.length === 2 ? r[0] + " y " + r[1] : r.join("");
+    return r.length > 1 ? r.slice(0, -1).join(", ") + " y " + r[r.length - 1] : r.join("");
   }
   function canRemoveSlot() {
     return state.slots.length - 1 >= state.players.length + state.queue.length;
@@ -143,11 +142,11 @@
     } else if (state.phase === "place") {
       var cur = personOf(state.current), t = teamOf((state.players.find(function (p) { return p.num === state.current; }) || {}).team);
       note = "Le toca elegir casilla a " + cur.name + (t ? " (" + t.name + ")" : "") + "." +
-        (adminOn ? " Tocá una casilla libre: las dos líneas que salen de ella son dos de sus partidos; el otro es contra la casilla de enfrente." : "");
+        (adminOn ? " Tocá una casilla libre para ubicarlo. Abajo está contra quién juega cada casilla." : "");
     } else {
       note = state.slots.length < 8
         ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
-        : "Cada casilla juega contra la de al lado de cada lado (la última contra la primera) y contra la de enfrente (la 1 con la que está a mitad de la ronda). Si son impares, en vez de la de enfrente juega contra las dos que están a media vuelta. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
+        : "Cada casilla juega contra las dos de al lado y contra la de enfrente (si son impares, contra las dos que están a media vuelta). Abajo está contra quién juega cada una. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
     }
     $("ring-note").textContent = note;
     $("ring-note").classList.toggle("ring-flash", !!flash);
@@ -178,6 +177,11 @@
         return extra;
       }),
     }));
+    // Con la ronda (8 o más), las tarjetas dejan claro contra quién juega cada casilla.
+    if (state.slots.length >= 8) {
+      ringBox.appendChild(el("h3", "rivals-title", "Contra quién juega cada casilla"));
+      ringBox.appendChild(S.rivalsGrid({ nodes: zigzagNodes(), highlight: flash ? flash.index : null }));
+    }
   }
 
   /* ---------- Turno y fila ---------- */

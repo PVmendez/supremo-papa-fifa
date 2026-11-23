@@ -127,6 +127,54 @@
     return a;
   }
 
+  /**
+   * Rivales de la casilla i (posiciones desde 0) en una ronda de n casillas, igual que lib/tournament.js:
+   * las dos de al lado y la de enfrente (con n par) o las dos que están a media vuelta (con n impar).
+   * Con menos de 8 no se usa la ronda (es todos contra todos).
+   */
+  function rivalIndexes(n, i) {
+    if (n < 2) return [];
+    if (n === 2) return [1 - i];
+    var out = [(i - 1 + n) % n, (i + 1) % n];
+    if (n >= 8) {
+      var k = n % 2 === 0 ? n / 2 : (n - 1) / 2;
+      out.push((i + k) % n);
+      if (n % 2 === 1) out.push((i - k + n) % n);
+    }
+    return out.filter(function (x, idx, a) { return x !== i && a.indexOf(x) === idx; });
+  }
+
+  /**
+   * La liga en tarjetas: cada casilla con su jugador y la lista de contra quién juega.
+   * nodes: [{ label, person, team, free, mine }]; score(i, j) -> { text, cls } o null; highlight: índice resaltado.
+   */
+  function rivalsGrid(opts) {
+    var nodes = opts.nodes, n = nodes.length;
+    var grid = el("div", "rivals");
+    nodes.forEach(function (nd, i) {
+      var card = el("div", "rival-card" + (nd.mine ? " mine" : "") + (opts.highlight === i ? " flash" : ""));
+      var head = el("div", "rival-head");
+      head.appendChild(el("span", "rival-slot", nd.label));
+      head.appendChild(avatar(nd.person, "avatar-sm"));
+      head.appendChild(el("b", "rival-name", nd.person ? nd.person.name : "Casilla libre"));
+      if (nd.team) head.appendChild(crest(nd.team, "sm"));
+      card.appendChild(head);
+      var list = el("ul", "rival-list");
+      rivalIndexes(n, i).forEach(function (j) {
+        var other = nodes[j];
+        var li = el("li", "rival-row");
+        li.appendChild(el("span", "rival-slot small", other.label));
+        li.appendChild(el("span", "rival-other", other.person ? other.person.name : "Casilla " + other.label + " (libre)"));
+        var sc = opts.score ? opts.score(i, j) : null;
+        li.appendChild(el("span", "rival-score" + (sc && sc.cls ? " " + sc.cls : ""), sc ? sc.text : "vs"));
+        list.appendChild(li);
+      });
+      card.appendChild(list);
+      grid.appendChild(card);
+    });
+    return grid;
+  }
+
   var ERRORS = {
     unauthorized: "Código del organizador incorrecto.",
     nobody_waiting: "No hay confirmados sin equipo para el sorteo.",
@@ -344,7 +392,7 @@
   function notice(text, title) { return ask({ title: title || "Ojo", text: text, ok: "Entendido", cancel: false }); }
 
   window.Supremo = {
-    zigzag: zigzag, ask: ask, notice: notice,
+    zigzag: zigzag, rivalsGrid: rivalsGrid, rivalIndexes: rivalIndexes, ask: ask, notice: notice,
     api: api, adminPost: adminPost, getToken: function () { return memToken; }, setToken: setToken,
     adminGate: adminGate, el: el, crest: crest, avatar: avatar, errorText: errorText,
     pollMs: 4000
