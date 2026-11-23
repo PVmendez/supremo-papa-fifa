@@ -57,3 +57,11 @@ CREATE TABLE IF NOT EXISTS slots (
   slot INTEGER PRIMARY KEY,
   num  INTEGER UNIQUE
 );
+
+-- Sorteo de cruces: qué casilla juega contra cuál en la liga (se sortea al empezar el sorteo).
+-- ord es el orden en que conviene jugarlos.
+CREATE TABLE IF NOT EXISTS fixture_pairs (
+  ord INTEGER PRIMARY KEY,
+  a   INTEGER NOT NULL,
+  b   INTEGER NOT NULL
+);

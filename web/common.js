@@ -142,12 +142,14 @@
 
   /**
    * La liga en tarjetas: cada casilla con su jugador y la lista de contra quién juega.
-   * nodes: [{ label, person, team, free, mine }]; score(i, j) -> { text, cls } o null; highlight: índice resaltado.
+   * nodes: [{ label, person, team, free, mine }]; rivals(i) -> índices de sus rivales (si no, rivalIndexes);
+   * score(i, j) -> { text, cls } o null; highlight: índice resaltado.
    */
   function rivalsGrid(opts) {
     var nodes = opts.nodes, n = nodes.length;
     var hl = opts.highlight != null && opts.highlight >= 0 ? opts.highlight : null;
-    var hlRivals = hl != null ? rivalIndexes(n, hl) : [];
+    var rivalsOf = opts.rivals || function (i) { return rivalIndexes(n, i); };
+    var hlRivals = hl != null ? rivalsOf(hl) : [];
     var grid = el("div", "rivals");
     var cards = nodes.map(function (nd, i) {
       var cls = "rival-card" + (nd.mine ? " mine" : "") + (nd.free ? " free" : "") + (nd.onClick ? " pickable" : "") +
@@ -167,7 +169,7 @@
       }
       card.appendChild(head);
       var list = el("ul", "rival-list");
-      var rivals = rivalIndexes(n, i);
+      var rivals = rivalsOf(i);
       rivals.forEach(function (j) {
         var other = nodes[j];
         var li = el("li", "rival-row" + (hl === i || hl === j ? " lit" : ""));

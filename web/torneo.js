@@ -30,8 +30,7 @@
     } else {
       var ko = fmt.direct === 6 ? "cuartos" : "semis";
       var po = fmt.playoff.map(function (p) { return p[0] + "º vs " + p[1] + "º"; }).join(" y ");
-      var rivals = n && n % 2 === 1 ? "las dos casillas de al lado" : "las dos casillas de al lado y la de enfrente";
-      text = "liga de " + fmt.games + " partidos cada uno (contra " + rivals + "); del 1º al " + fmt.direct + "º a " + ko +
+      text = "liga de " + fmt.games + " partidos cada uno (los cruces se sortean); del 1º al " + fmt.direct + "º a " + ko +
         ", playoff " + po + " por los dos lugares que faltan";
     }
     return (n ? n + " jugadores: " : "") + text + ". En playoff y llave, si empatan, penales. " +
@@ -131,11 +130,20 @@
     });
     var box = el("div", "group league-map");
     box.appendChild(el("h3", null, "Contra quién juega cada uno"));
-    box.appendChild(el("p", "muted rivals-note", n % 2 === 0
-      ? "Cada casilla juega contra las dos de al lado y la de enfrente."
-      : "Cada casilla juega contra las dos de al lado (con un número impar no hay casilla de enfrente)."));
+    box.appendChild(el("p", "muted rivals-note", "Los cruces salieron del sorteo: " +
+      (n % 2 === 0 ? "3 partidos cada uno." : "2 partidos cada uno (con un número impar).")));
     box.appendChild(S.rivalsGrid({
       nodes: nodes,
+      // Los rivales salen de los partidos de la liga.
+      rivals: function (i) {
+        var me = ring[i], out = [];
+        league.forEach(function (m) {
+          var other = m.home === me ? m.away : m.away === me ? m.home : null;
+          var j = other == null ? -1 : ring.indexOf(other);
+          if (j >= 0 && out.indexOf(j) < 0) out.push(j);
+        });
+        return out;
+      },
       score: function (i, j) {
         var a = ring[i], b = ring[j];
         var m = league.find(function (x) { return (x.home === a && x.away === b) || (x.home === b && x.away === a); });

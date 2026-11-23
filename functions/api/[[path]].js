@@ -17,6 +17,7 @@
 //   POST /api/admin/draw/remove-slot  -> { slot } saca una casilla vacía que sobra
 //   POST /api/admin/draw/auto         -> (pruebas) termina el sorteo al azar: equipos y casillas
 //   POST /api/admin/draw/reset        -> borra el sorteo
+// Al empezar, también se sortean los cruces (qué casilla juega contra cuál; ver randomPairs en lib/tournament.js).
 // shoot y pick los puede hacer el organizador (x-admin-token) o el propio jugador con su código (x-guest-code).
 // expect es el número del jugador que la pantalla cree que está pateando, para no patear por otro.
 //
@@ -30,7 +31,7 @@
 
 import { shoot, ZONES } from "../../lib/penalty.js";
 import {
-  MIN_PLAYERS, ROOMS, formatFor, knockoutPlan, leagueMatches, scheduleTurns, standings, zoneOf, resolveKnockout, winnerOf, isPlayed,
+  MIN_PLAYERS, ROOMS, formatFor, knockoutPlan, leagueMatches, scheduleTurns, randomPairs, pairsFit, standings, zoneOf, resolveKnockout, winnerOf, isPlayed,
 } from "../../lib/tournament.js";
 
 const VALID = new Set(["yes", "no"]);
@@ -104,13 +105,14 @@ function randomIndex(n) {
 }
 
 async function drawState(db) {
-  const [guests, picks, queue, slots, last, leagueRows] = await db.batch([
+  const [guests, picks, queue, slots, last, leagueRows, pairRows] = await db.batch([
     db.prepare("SELECT num, name, photo FROM guests WHERE status = 'yes' ORDER BY num"),
     db.prepare("SELECT num, team, ord FROM picks ORDER BY ord"),
     db.prepare("SELECT num, pos FROM penalty_queue ORDER BY pos"),
     db.prepare("SELECT slot, num FROM slots ORDER BY slot"),
     db.prepare("SELECT id, kind, num, zone, dive, result, team FROM penalty_log ORDER BY id DESC LIMIT 1"),
     db.prepare("SELECT ord AS turn, console AS room, home, away FROM matches WHERE stage = 'league' ORDER BY ord, console"),
+    db.prepare("SELECT a, b FROM fixture_pairs ORDER BY ord"),
   ]);
   const person = (g) => ({ num: g.num, name: g.name, photo: g.photo ?? null });
   const confirmed = new Map(guests.results.map((g) => [g.num, g]));
@@ -150,7 +152,27 @@ async function drawState(db) {
     phase, current: current ?? null, last: ev,
     // El sorteo de salas: los partidos de la liga con su turno y su sala, cuando ya se armó.
     rooms: leagueRows.results,
+    // El sorteo de cruces: qué casilla juega contra cuál (números de casilla).
+    pairs: pairRows.results.map((r) => [r.a, r.b]),
   };
+}
+
+/**
+ * Sorteo de cruces: si los guardados no sirven para las casillas que hay (recién empezado, alguien llegó
+ * tarde o se sacó una casilla), se sortean de nuevo. Primero guarda las casillas nuevas de los que llegaron tarde.
+ */
+async function syncPairs(db) {
+  const state = await drawState(db);
+  if (!state.slots.length) return false;
+  const slots = state.slots.map((r) => r.slot);
+  if (pairsFit(state.pairs, slots)) return false;
+  const pairs = randomPairs(slots, randomIndex);
+  await db.batch([
+    ...state.slots.filter((r) => r.pending).map((r) => db.prepare("INSERT OR IGNORE INTO slots (slot, num) VALUES (?1, NULL)").bind(r.slot)),
+    db.prepare("DELETE FROM fixture_pairs"),
+    ...pairs.map(([a, b], i) => db.prepare("INSERT INTO fixture_pairs (ord, a, b) VALUES (?1, ?2, ?3)").bind(i + 1, a, b)),
+  ]);
+  return true;
 }
 
 function logEvent(db, kind, f = {}) {
@@ -322,10 +344,11 @@ async function canPlay(request, env, db, num) {
 const teamById = new Map(TEAMS.map((t) => [t.id, t]));
 
 async function tournamentData(db) {
-  const [people, slotRows, matchRows] = await db.batch([
+  const [people, slotRows, matchRows, pairRows] = await db.batch([
     db.prepare("SELECT g.num, g.name, g.photo, p.team FROM guests g JOIN picks p ON p.num = g.num WHERE g.status = 'yes'"),
     db.prepare("SELECT slot, num FROM slots ORDER BY slot"),
     db.prepare("SELECT id, stage, slot, ord, console AS room, home, away, hg, ag, pen_winner FROM matches ORDER BY ord, console, id"),
+    db.prepare("SELECT a, b FROM fixture_pairs ORDER BY ord"),
   ]);
   const byNum = new Map(people.results.filter((p) => teamById.has(p.team))
     .map((p) => [p.num, { num: p.num, name: p.name, photo: p.photo ?? null, team: teamById.get(p.team) }]));
@@ -333,7 +356,10 @@ async function tournamentData(db) {
   const ring = slotRows.results.filter((r) => byNum.has(r.num)).map((r) => r.num);
   const emptySlots = slotRows.results.length - ring.length;
   const unplaced = byNum.size - ring.length;
-  return { byNum, ring, emptySlots, unplaced, matches: matchRows.results };
+  // Los cruces sorteados, pasados de casilla a jugador.
+  const numBySlot = new Map(slotRows.results.map((r) => [r.slot, r.num]));
+  const pairs = pairRows.results.map((r) => [numBySlot.get(r.a), numBySlot.get(r.b)]);
+  return { byNum, ring, emptySlots, unplaced, pairs, matches: matchRows.results };
 }
 
 async function tournamentState(db) {
@@ -356,7 +382,8 @@ async function tournamentState(db) {
 }
 
 async function startTournament(db) {
-  const { ring, emptySlots, unplaced, matches } = await tournamentData(db);
+  await syncPairs(db);
+  const { byNum, ring, emptySlots, unplaced, pairs, matches } = await tournamentData(db);
   if (matches.length) return { error: "groups_already_built" };
   if (unplaced || (await db.prepare("SELECT 1 FROM penalty_queue LIMIT 1").first())) return { error: "draw_not_finished" };
   if (emptySlots) return { error: "empty_slots" };
@@ -365,7 +392,10 @@ async function startTournament(db) {
   const now = new Date().toISOString();
   // Sorteo de salas: los partidos se reparten en turnos (uno por sala) y en cada turno se sortea la sala.
   // ord es el número de turno y console la sala (1 o 2).
-  await db.batch(scheduleTurns(leagueMatches(ring, fmt.kind), randomIndex).map((m) => db
+  // Los partidos de la liga salen del sorteo de cruces (si no hay, del orden de las casillas).
+  const fromPairs = pairs.filter(([a, b]) => byNum.has(a) && byNum.has(b)).map(([home, away]) => ({ stage: "league", home, away }));
+  const league = fromPairs.length ? fromPairs : leagueMatches(ring, fmt.kind);
+  await db.batch(scheduleTurns(league, randomIndex).map((m) => db
     .prepare("INSERT INTO matches (stage, slot, ord, console, home, away, updated_at) VALUES ('league', 0, ?1, ?2, ?3, ?4, ?5)")
     .bind(m.turn, m.room, m.home, m.away, now)));
   return { ok: true };
@@ -491,6 +521,8 @@ export async function onRequest({ request, env }) {
     }
 
     if (method === "GET" && path === "/draw") {
+      const noLeague = !(await db.prepare("SELECT 1 FROM matches LIMIT 1").first());
+      if (noLeague) await syncPairs(db);
       return json(200, await drawState(db));
     }
 
@@ -513,11 +545,13 @@ export async function onRequest({ request, env }) {
         else if (path === "/admin/draw/reset") {
           await db.batch([
             db.prepare("DELETE FROM picks"), db.prepare("DELETE FROM penalty_queue"), db.prepare("DELETE FROM slots"),
+            db.prepare("DELETE FROM fixture_pairs"),
             logEvent(db, "reset"),
           ]);
           result = { ok: true };
         } else return json(404, { error: "not_found" });
       }
+      if (!result.error) await syncPairs(db);
       return result.error ? json(409, result) : json(200, await drawState(db));
     }
 

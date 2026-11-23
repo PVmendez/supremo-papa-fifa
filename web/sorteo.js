@@ -83,8 +83,18 @@
     for (var i = 0; i < state.slots.length; i++) if (state.slots[i].num === num) return i;
     return -1;
   }
+  /** Rivales de la casilla en la posición i, según el sorteo de cruces (índices en state.slots). */
+  function rivalsAt(i) {
+    var mine = state.slots[i] && state.slots[i].slot, out = [];
+    (state.pairs || []).forEach(function (pr) {
+      var other = pr[0] === mine ? pr[1] : pr[1] === mine ? pr[0] : null;
+      if (other == null) return;
+      for (var j = 0; j < state.slots.length; j++) if (state.slots[j].slot === other) out.push(j);
+    });
+    return out;
+  }
   function neighbors(i) {
-    return S.rivalIndexes(state.slots.length, i).map(function (j) { return state.slots[j]; });
+    return rivalsAt(i).map(function (j) { return state.slots[j]; });
   }
   function slotName(sl) {
     var p = sl.num != null ? personOf(sl.num) : null;
@@ -123,7 +133,7 @@
   }
 
   function renderRing() {
-    var key = JSON.stringify([state.slots, state.players, adminOn, state.queue.length, state.phase, state.current, flash]);
+    var key = JSON.stringify([state.slots, state.pairs, state.players, adminOn, state.queue.length, state.phase, state.current, flash]);
     if (key === ringKey) return;
     ringKey = key;
     var wrap = $("ring-wrap");
@@ -146,7 +156,7 @@
     } else {
       note = state.slots.length < 8
         ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
-        : "Cada casilla juega contra las dos de al lado y, si son pares, también contra la de enfrente. Cada tarjeta muestra contra quién juega esa casilla. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
+        : "Los cruces se sortearon al empezar: cada casilla juega 3 partidos si son pares y 2 si son impares. Cada tarjeta muestra contra quién juega esa casilla. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
     }
     $("ring-note").textContent = note;
     $("ring-note").classList.toggle("ring-flash", !!flash);
@@ -156,6 +166,7 @@
     // Las casillas en tarjetas: cada una con contra quién juega; en las libres, el botón para ubicar.
     ringBox.replaceChildren(S.rivalsGrid({
       highlight: flash ? flash.index : null,
+      rivals: rivalsAt,
       nodes: zigzagNodes(function (sl, i) {
         if (sl.num != null) return {};
         var extra = {};
