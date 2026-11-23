@@ -146,7 +146,7 @@
     } else {
       note = state.slots.length < 8
         ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
-        : "Cada casilla juega contra las dos de al lado y contra la de enfrente (si son impares, contra las dos que están a media vuelta). Cada tarjeta muestra contra quién juega esa casilla. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
+        : "Cada casilla juega contra las dos de al lado y, si son pares, también contra la de enfrente. Cada tarjeta muestra contra quién juega esa casilla. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
     }
     $("ring-note").textContent = note;
     $("ring-note").classList.toggle("ring-flash", !!flash);

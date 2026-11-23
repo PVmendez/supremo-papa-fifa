@@ -30,7 +30,7 @@
     } else {
       var ko = fmt.direct === 6 ? "cuartos" : "semis";
       var po = fmt.playoff.map(function (p) { return p[0] + "º vs " + p[1] + "º"; }).join(" y ");
-      var rivals = n && n % 2 === 1 ? "las dos de al lado y las dos que están a media vuelta" : "las dos de al lado y la de enfrente";
+      var rivals = n && n % 2 === 1 ? "las dos casillas de al lado" : "las dos casillas de al lado y la de enfrente";
       text = "liga de " + fmt.games + " partidos cada uno (contra " + rivals + "); del 1º al " + fmt.direct + "º a " + ko +
         ", playoff " + po + " por los dos lugares que faltan";
     }
@@ -133,7 +133,7 @@
     box.appendChild(el("h3", null, "Contra quién juega cada uno"));
     box.appendChild(el("p", "muted rivals-note", n % 2 === 0
       ? "Cada casilla juega contra las dos de al lado y la de enfrente."
-      : "Cada casilla juega contra las dos de al lado y las dos que están a media vuelta."));
+      : "Cada casilla juega contra las dos de al lado (con un número impar no hay casilla de enfrente)."));
     box.appendChild(S.rivalsGrid({
       nodes: nodes,
       score: function (i, j) {

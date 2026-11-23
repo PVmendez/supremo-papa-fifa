@@ -129,18 +129,14 @@
 
   /**
    * Rivales de la casilla i (posiciones desde 0) en una ronda de n casillas, igual que lib/tournament.js:
-   * las dos de al lado y la de enfrente (con n par) o las dos que están a media vuelta (con n impar).
+   * las dos de al lado y, con n par, también la de enfrente.
    * Con menos de 8 no se usa la ronda (es todos contra todos).
    */
   function rivalIndexes(n, i) {
     if (n < 2) return [];
     if (n === 2) return [1 - i];
     var out = [(i - 1 + n) % n, (i + 1) % n];
-    if (n >= 8) {
-      var k = n % 2 === 0 ? n / 2 : (n - 1) / 2;
-      out.push((i + k) % n);
-      if (n % 2 === 1) out.push((i - k + n) % n);
-    }
+    if (n >= 8 && n % 2 === 0) out.push((i + n / 2) % n);
     return out.filter(function (x, idx, a) { return x !== i && a.indexOf(x) === idx; });
   }
 
