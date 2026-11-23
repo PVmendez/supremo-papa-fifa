@@ -646,3 +646,9 @@ button.match:hover { box-shadow: 4px 4px 0 var(--gold); }
 .next-room .match .room-tag { display: none; }
 .next-room .next-match .match { margin-top: 0; }
 .rooms-reveal { width: min(940px, 100%); }
+.chords { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.chord { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 10px; border: 2px solid var(--ink); background: var(--paper-2); }
+.chord-slots { font-family: var(--f-label); font-size: 18px; letter-spacing: 1px; color: var(--red); }
+.chord-names { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chord-score { font-family: var(--f-label); font-size: 20px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.chord-score.played { color: var(--ink); }

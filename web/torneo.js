@@ -30,7 +30,8 @@
     } else {
       var ko = fmt.direct === 6 ? "cuartos" : "semis";
       var po = fmt.playoff.map(function (p) { return p[0] + "º vs " + p[1] + "º"; }).join(" y ");
-      text = "liga de 2 partidos cada uno (contra las casillas de al lado); del 1º al " + fmt.direct + "º a " + ko +
+      var rivals = n && n % 2 === 1 ? "las dos de al lado y las dos que están a media vuelta" : "las dos de al lado y la de enfrente";
+      text = "liga de " + fmt.games + " partidos cada uno (contra " + rivals + "); del 1º al " + fmt.direct + "º a " + ko +
         ", playoff " + po + " por los dos lugares que faltan";
     }
     return (n ? n + " jugadores: " : "") + text + ". En playoff y llave, si empatan, penales. " +
@@ -138,6 +139,25 @@
     var box = el("div", "group league-map");
     box.appendChild(el("h3", null, "El fixture"));
     box.appendChild(S.zigzag({ nodes: nodes, edges: edges }));
+
+    // Los partidos "de enfrente": con un número par de casillas, cada una contra la que está a la mitad
+    // de la ronda; con impar, contra las dos que están a media vuelta.
+    var k = n % 2 === 0 ? n / 2 : (n - 1) / 2;
+    var count = n % 2 === 0 ? n / 2 : n;
+    var list = el("div", "chords");
+    list.appendChild(el("h4", "turn-label", n % 2 === 0 ? "Y contra la casilla de enfrente" : "Y contra las casillas a media vuelta"));
+    for (var i = 0; i < count; i++) {
+      var j = (i + k) % n, a = ring[i], b = ring[j];
+      var m = league.find(function (x) { return (x.home === a && x.away === b) || (x.home === b && x.away === a); });
+      var row = el("div", "chord");
+      row.appendChild(el("span", "chord-slots", (i + 1) + " vs " + (j + 1)));
+      var pa = player(a), pb = player(b);
+      row.appendChild(el("span", "chord-names", (pa ? pa.name : "Libre") + " – " + (pb ? pb.name : "Libre")));
+      var score = m && m.hg != null ? (m.home === a ? m.hg + " – " + m.ag : m.ag + " – " + m.hg) : "vs";
+      row.appendChild(el("span", "chord-score" + (score === "vs" ? "" : " played"), score));
+      list.appendChild(row);
+    }
+    box.appendChild(list);
     return box;
   }
 

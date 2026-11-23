@@ -143,11 +143,11 @@
     } else if (state.phase === "place") {
       var cur = personOf(state.current), t = teamOf((state.players.find(function (p) { return p.num === state.current; }) || {}).team);
       note = "Le toca elegir casilla a " + cur.name + (t ? " (" + t.name + ")" : "") + "." +
-        (adminOn ? " Tocá una casilla libre: las dos líneas que salen de ella son sus dos partidos." : "");
+        (adminOn ? " Tocá una casilla libre: las dos líneas que salen de ella son dos de sus partidos; el otro es contra la casilla de enfrente." : "");
     } else {
       note = state.slots.length < 8
         ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
-        : "Cada casilla juega contra la de al lado de cada lado (la última contra la primera). Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
+        : "Cada casilla juega contra la de al lado de cada lado (la última contra la primera) y contra la de enfrente (la 1 con la que está a mitad de la ronda). Si son impares, en vez de la de enfrente juega contra las dos que están a media vuelta. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
     }
     $("ring-note").textContent = note;
     $("ring-note").classList.toggle("ring-flash", !!flash);
