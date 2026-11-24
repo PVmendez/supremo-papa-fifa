@@ -7,6 +7,10 @@
 
   var STAGE_LABEL = { league: "Liga", po: "Playoff", qf: "Cuartos", sf: "Semifinales", final: "Final" };
   var ZONE_LABEL = { direct: "A la llave", po: "Playoff", out: "Afuera" };
+  // Con 11 jugadores la ronda previa del 3º al 6º se llama cuartos de final (format.poLabel).
+  function stageLabel(stage) {
+    return stage === "po" && state && state.format && state.format.poLabel ? state.format.poLabel : STAGE_LABEL[stage];
+  }
   var state = null;
   var championShown = null;
 
@@ -30,8 +34,10 @@
     } else {
       var ko = fmt.direct === 6 ? "cuartos" : "semis";
       var po = fmt.playoff.map(function (p) { return p[0] + "º vs " + p[1] + "º"; }).join(" y ");
-      text = "liga de " + fmt.games + " partidos cada uno (los cruces se sortean); del 1º al " + fmt.direct + "º a " + ko +
-        ", playoff " + po + " por los dos lugares que faltan";
+      var poName = (fmt.poLabel || "Playoff").toLowerCase();
+      text = "liga de " + fmt.games + " partidos cada uno (los cruces se sortean); " +
+        (fmt.direct === 2 ? "el 1º y el 2º a " + ko + " (uno en cada lado de la llave)" : "del 1º al " + fmt.direct + "º a " + ko) +
+        ", " + poName + " " + po + " por los dos lugares que faltan";
     }
     return (n ? n + " jugadores: " : "") + text + ". En playoff y llave, si empatan, penales. " +
       fmt.matches + " partidos en dos consolas a la vez (Sala 1 y Sala 2): " + fmt.turns + " turnos, unas " +
@@ -82,7 +88,7 @@
     state.table.forEach(function (r, i) {
       var p = player(r.num);
       var tr = el("tr", "zone-" + r.zone);
-      tr.title = ZONE_LABEL[r.zone];
+      tr.title = (r.zone === "po" ? stageLabel("po") : ZONE_LABEL[r.zone]);
       tr.appendChild(el("td", "pos", String(i + 1)));
       var who = el("td", "who");
       if (p) { who.appendChild(S.avatar(p, "avatar-xs")); who.appendChild(el("span", null, p.name)); if (p.team) who.appendChild(S.crest(p.team, "sm")); }
@@ -99,7 +105,7 @@
       if (z === "po" && !state.format.playoff.length) return;
       var item = el("span", "zone-key zone-" + z);
       item.appendChild(el("i"));
-      item.appendChild(document.createTextNode(z === "direct" ? (state.format.kind === "rr" ? "A la final" : "Directo a " + (state.format.direct === 6 ? "cuartos" : "semis")) : ZONE_LABEL[z]));
+      item.appendChild(document.createTextNode(z === "direct" ? (state.format.kind === "rr" ? "A la final" : "Directo a " + (state.format.direct === 6 ? "cuartos" : "semis")) : z === "po" ? stageLabel("po") : ZONE_LABEL[z]));
       legend.appendChild(item);
     });
     card.appendChild(legend);
@@ -131,7 +137,7 @@
     var box = el("div", "group league-map");
     box.appendChild(el("h3", null, "Contra quién juega cada uno"));
     box.appendChild(el("p", "muted rivals-note", "Los cruces salieron del sorteo: " +
-      (n % 2 === 0 ? "3 partidos cada uno." : "2 partidos cada uno (con un número impar).")));
+      (state.format && state.format.games ? state.format.games + " partidos cada uno." : "")));
     box.appendChild(S.rivalsGrid({
       nodes: nodes,
       // Los rivales salen de los partidos de la liga.
@@ -176,7 +182,7 @@
           [m.home, m.away].some(function (p) { return p === other.home || p === other.away; });
         var wrap = el("div", "next-match" + (i === 0 ? " now" : ""));
         var label = (i === 0 ? (waits ? "Espera a la Sala " + (r === 1 ? 2 : 1) : "Ahora") : "Después") +
-          " · " + STAGE_LABEL[m.stage] + " · Turno " + m.ord;
+          " · " + stageLabel(m.stage) + " · Turno " + m.ord;
         wrap.appendChild(el("span", "next-label", label));
         wrap.appendChild(matchEl(m));
         col.appendChild(wrap);
@@ -195,7 +201,7 @@
       var games = ko.filter(function (m) { return m.stage === stage; }).sort(function (a, b) { return a.slot - b.slot; });
       if (!games.length) return;
       var col = el("div", "round round-" + stage);
-      col.appendChild(el("h3", null, STAGE_LABEL[stage]));
+      col.appendChild(el("h3", null, stageLabel(stage)));
       games.forEach(function (m) { col.appendChild(matchEl(m)); });
       frag.appendChild(col);
     });
@@ -274,7 +280,7 @@
     if (m.home == null || m.away == null) { msg.textContent = S.errorText({ code: "match_not_ready" }); return; }
     current = m;
     var h = player(m.home), a = player(m.away);
-    $("score-title").textContent = STAGE_LABEL[m.stage];
+    $("score-title").textContent = stageLabel(m.stage);
     $("home-name").textContent = h ? h.name : "Local";
     $("away-name").textContent = a ? a.name : "Visitante";
     $("pen-home-name").textContent = h ? h.name : "";

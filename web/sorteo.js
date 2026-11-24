@@ -156,7 +156,7 @@
     } else {
       note = state.slots.length < 8
         ? "Con menos de 8 jugadores todos juegan contra todos: la casilla no cambia los rivales."
-        : "Los cruces se sortearon al empezar: cada casilla juega 3 partidos si son pares y 2 si son impares. Cada tarjeta muestra contra quién juega esa casilla. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
+        : "Los cruces se sortearon al empezar: cada casilla juega 3 partidos si son pares, 4 si son 11 y 2 si son 9. Cada tarjeta muestra contra quién juega esa casilla. Cuando todos tienen equipo, cada uno elige su casilla en el mismo orden.";
     }
     $("ring-note").textContent = note;
     $("ring-note").classList.toggle("ring-flash", !!flash);
